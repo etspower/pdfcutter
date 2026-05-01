@@ -1,3 +1,4 @@
+import asyncio
 import flet as ft
 import os
 import threading
@@ -28,10 +29,6 @@ class PDFCutterGUI:
         self.image_paths: List[str] = []
         self.toc_entries: List[TocEntry] = []
         self.raw_json: str = ""
-
-        # FilePicker — must be in page.overlay before use
-        self.file_picker = ft.FilePicker(on_result=self.on_file_picked)
-        self.page.overlay.append(self.file_picker)
 
         self.setup_ui()
 
@@ -128,9 +125,7 @@ class PDFCutterGUI:
                             ft.ElevatedButton(
                                 "Select PDF File",
                                 icon=ft.Icons.UPLOAD_FILE,
-                                on_click=lambda _: self.file_picker.pick_files(
-                                    allowed_extensions=["pdf"]
-                                ),
+                                on_click=self._pick_file,
                             ),
                             self.pdf_status,
                         ]
@@ -302,10 +297,11 @@ class PDFCutterGUI:
     #  EVENT HANDLERS                                                      #
     # ------------------------------------------------------------------ #
 
-    def on_file_picked(self, e):
-        """Handle FilePicker result — type hint omitted for Flet version compatibility."""
-        if e.files:
-            self.pdf_path = e.files[0].path
+    async def _pick_file(self, e):
+        """Open file picker dialog using Flet 0.80+ async API."""
+        files = await ft.FilePicker().pick_files(allowed_extensions=["pdf"])
+        if files:
+            self.pdf_path = files[0].path
             self.total_pages = get_pdf_info(self.pdf_path)
             self.pdf_status.value = (
                 f"\u2705 {os.path.basename(self.pdf_path)}  ({self.total_pages} pages)"
@@ -586,9 +582,9 @@ class PDFCutterGUI:
         threading.Thread(target=run, daemon=True).start()
 
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
     PDFCutterGUI(page)
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)
