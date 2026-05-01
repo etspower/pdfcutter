@@ -36,7 +36,7 @@ class PDFCutterGUI:
         # Header
         header = ft.Row(
             [
-                ft.Icon("content_cut", size=30, color=ft.colors.AMBER),
+                ft.Icon("content_cut", size=30, color=ft.Colors.AMBER),
                 ft.Text("PDF Cutter AI", size=32, weight=ft.FontWeight.BOLD),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
@@ -73,7 +73,7 @@ class PDFCutterGUI:
         self.page.add(header, self.tabs)
 
     def create_config_tab(self):
-        self.pdf_status = ft.Text("No PDF selected", color=ft.colors.GREY_400)
+        self.pdf_status = ft.Text("No PDF selected", color=ft.Colors.GREY_400)
         self.toc_range_input = ft.TextField(label="TOC Page Ranges (e.g., 12-14, 16)", hint_text="5-10")
         
         self.api_base = ft.TextField(label="Base URL", value=Config.API_BASE_URL)
@@ -124,8 +124,8 @@ class PDFCutterGUI:
                         ft.ElevatedButton("Extract TOC Images", icon="image_search", on_click=self.extract_images_clicked),
                         self.preview_info
                     ]),
-                    ft.Container(self.gallery, height=400, border=ft.border.all(1, ft.colors.GREY_700), border_radius=10, padding=10),
-                    ft.ElevatedButton("Run AI TOC Extraction", icon="auto_awesome", variant=ft.ButtonStyle(color=ft.colors.WHITE, bgcolor=ft.colors.BLUE_700), height=50, on_click=self.run_extraction_clicked),
+                    ft.Container(self.gallery, height=400, border=ft.border.all(1, ft.Colors.GREY_700), border_radius=10, padding=10),
+                    ft.ElevatedButton("Run AI TOC Extraction", icon="auto_awesome", variant=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE_700), height=50, on_click=self.run_extraction_clicked),
                 ],
                 spacing=20
             ),
@@ -145,8 +145,8 @@ class PDFCutterGUI:
                         ft.ElevatedButton("Add Row", icon="add", on_click=self.add_row_clicked),
                     ]),
                     ft.Row([
-                        ft.Container(self.entries_list, expand=3, height=500, border=ft.border.all(1, ft.colors.GREY_700), border_radius=10),
-                        ft.Container(ft.Column([ft.Text("Summary", size=18, weight="bold"), self.summary_text], scroll=ft.ScrollMode.AUTO), expand=1, height=500, padding=10, bgcolor=ft.colors.GREY_900, border_radius=10)
+                        ft.Container(self.entries_list, expand=3, height=500, border=ft.border.all(1, ft.Colors.GREY_700), border_radius=10),
+                        ft.Container(ft.Column([ft.Text("Summary", size=18, weight="bold"), self.summary_text], scroll=ft.ScrollMode.AUTO), expand=1, height=500, padding=10, bgcolor=ft.Colors.GREY_900, border_radius=10)
                     ], expand=True)
                 ],
                 spacing=20
@@ -165,10 +165,10 @@ class PDFCutterGUI:
                 [
                     ft.Text("Step 4: Execute Split", size=20, weight=ft.FontWeight.W_600),
                     ft.Text("Review the final plan below before processing."),
-                    ft.Container(self.split_plan_view, height=400, border=ft.border.all(1, ft.colors.GREY_700), border_radius=10),
+                    ft.Container(self.split_plan_view, height=400, border=ft.border.all(1, ft.Colors.GREY_700), border_radius=10),
                     ft.Row([
                         self.prefix_input,
-                        ft.ElevatedButton("Split PDF & Save", icon="content_cut", variant=ft.ButtonStyle(bgcolor=ft.colors.GREEN_700), height=50, on_click=self.split_clicked)
+                        ft.ElevatedButton("Split PDF & Save", icon="content_cut", variant=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_700), height=50, on_click=self.split_clicked)
                     ]),
                     self.progress_bar,
                     self.split_status
@@ -200,10 +200,10 @@ class PDFCutterGUI:
             success = test_connection(self.api_base.value, self.api_key.value, self.model_name.value, int(self.api_timeout.value))
             if success:
                 self.conn_status.value = "✅ Connection successful!"
-                self.conn_status.color = ft.colors.GREEN
+                self.conn_status.color = ft.Colors.GREEN
         except Exception as e:
             self.conn_status.value = f"❌ Error: {str(e)}"
-            self.conn_status.color = ft.colors.RED
+            self.conn_status.color = ft.Colors.RED
         self.page.update()
 
     def extract_images_clicked(self, _):
@@ -270,7 +270,7 @@ class PDFCutterGUI:
                     ft.dropdown.Option("arabic"), ft.dropdown.Option("roman"), ft.dropdown.Option("unknown")
                 ], on_change=lambda e, idx=i: self.update_entry_field(idx, "page_number_type", e.control.value)),
                 ft.TextField(value=str(entry.pdf_start_page or ""), width=60, dense=True, on_change=lambda e, idx=i: self.update_entry_field(idx, "pdf_start_page", e.control.value)),
-                ft.IconButton("delete", icon_color=ft.colors.RED_400, on_click=lambda _, idx=i: self.delete_row(idx))
+                ft.IconButton("delete", icon_color=ft.Colors.RED_400, on_click=lambda _, idx=i: self.delete_row(idx))
             ])
             self.entries_list.controls.append(row)
         
@@ -331,10 +331,10 @@ class PDFCutterGUI:
                 
             files, zip_path = split_pdf(self.pdf_path, plan_dicts, self.prefix_input.value)
             self.split_status.value = f"✅ Success! Saved {len(files)} files and ZIP to 'output/' folder.\nZIP: {zip_path}"
-            self.split_status.color = ft.colors.GREEN
+            self.split_status.color = ft.Colors.GREEN
         except Exception as e:
             self.split_status.value = f"❌ Error: {str(e)}"
-            self.split_status.color = ft.colors.RED
+            self.split_status.color = ft.Colors.RED
             
         self.progress_bar.visible = False
         self.page.update()
