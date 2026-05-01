@@ -179,7 +179,7 @@ class PDFCutterGUI:
         )
 
     # Event Handlers
-    def on_file_result(self, e: ft.FilePickerResultEvent):
+    def on_file_result(self, e):
         if e.files:
             self.pdf_path = e.files[0].path
             self.total_pages = get_pdf_info(self.pdf_path)
