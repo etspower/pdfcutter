@@ -44,7 +44,6 @@ class PDFCutterGUI:
 
         # File Picker
         self.file_picker = ft.FilePicker()
-        self.page.overlay.append(self.file_picker)
 
         # Tab 1: Config
         self.tab_config = self.create_config_tab()
@@ -194,9 +193,12 @@ class PDFCutterGUI:
 
     # Event Handlers
     async def pick_pdf_clicked(self, e):
+        print("DEBUG: pick_pdf_clicked triggered. Awaiting file_picker.pick_files()...")
         files = await self.file_picker.pick_files()
+        print(f"DEBUG: file_picker returned: {files}")
         if files:
             self.pdf_path = files[0].path
+            print(f"DEBUG: Selected PDF path: {self.pdf_path}")
             self.total_pages = get_pdf_info(self.pdf_path)
             self.pdf_status.value = f"Selected: {os.path.basename(self.pdf_path)} ({self.total_pages} pages)"
             self.page.update()
@@ -222,6 +224,7 @@ class PDFCutterGUI:
         self.page.update()
 
     def extract_images_clicked(self, _):
+        print(f"DEBUG: extract_images_clicked triggered. pdf_path={self.pdf_path}, toc_range={self.toc_range_input.value}")
         if not self.pdf_path or not self.toc_range_input.value:
             self.preview_info.value = "Error: PDF or Range missing"
             self.page.update()
@@ -239,6 +242,7 @@ class PDFCutterGUI:
         self.page.update()
 
     def run_extraction_clicked(self, _):
+        print(f"DEBUG: run_extraction_clicked triggered. image_paths={self.image_paths}")
         if not self.image_paths:
             return
             
