@@ -302,12 +302,13 @@ class PDFCutterGUI:
     #  EVENT HANDLERS                                                      #
     # ------------------------------------------------------------------ #
 
-    def on_file_picked(self, e: ft.FilePickerResultEvent):
+    def on_file_picked(self, e):
+        """Handle FilePicker result — type hint omitted for Flet version compatibility."""
         if e.files:
             self.pdf_path = e.files[0].path
             self.total_pages = get_pdf_info(self.pdf_path)
             self.pdf_status.value = (
-                f"✅ {os.path.basename(self.pdf_path)}  ({self.total_pages} pages)"
+                f"\u2705 {os.path.basename(self.pdf_path)}  ({self.total_pages} pages)"
             )
         else:
             self.pdf_status.value = "No file selected."
@@ -334,10 +335,10 @@ class PDFCutterGUI:
                     self.model_name.value,
                     int(self.api_timeout.value or "30"),
                 )
-                self.conn_status.value = "✅ Connection successful!" if ok else "❌ Connection failed."
+                self.conn_status.value = "\u2705 Connection successful!" if ok else "\u274c Connection failed."
                 self.conn_status.color = ft.Colors.GREEN if ok else ft.Colors.RED
             except Exception as exc:
-                self.conn_status.value = f"❌ {exc}"
+                self.conn_status.value = f"\u274c {exc}"
                 self.conn_status.color = ft.Colors.RED
             self.page.update()
 
@@ -345,11 +346,11 @@ class PDFCutterGUI:
 
     def _extract_images(self, _):
         if not self.pdf_path:
-            self.preview_info.value = "❌ Please select a PDF first."
+            self.preview_info.value = "\u274c Please select a PDF first."
             self.page.update()
             return
         if not self.toc_range_input.value.strip():
-            self.preview_info.value = "❌ Please enter TOC page range."
+            self.preview_info.value = "\u274c Please enter TOC page range."
             self.page.update()
             return
 
@@ -368,18 +369,18 @@ class PDFCutterGUI:
                         border_radius=8,
                     )
                 )
-            self.preview_info.value = f"✅ Extracted {len(self.image_paths)} TOC page image(s)."
+            self.preview_info.value = f"\u2705 Extracted {len(self.image_paths)} TOC page image(s)."
         except Exception as exc:
-            self.preview_info.value = f"❌ {exc}"
+            self.preview_info.value = f"\u274c {exc}"
         self.page.update()
 
     def _run_extraction(self, _):
         if not self.image_paths:
-            self.preview_info.value = "❌ Extract TOC images first."
+            self.preview_info.value = "\u274c Extract TOC images first."
             self.page.update()
             return
 
-        self.preview_info.value = "🤖 AI is thinking… please wait."
+        self.preview_info.value = "\U0001f916 AI is thinking\u2026 please wait."
         self.page.update()
 
         def run():
@@ -399,9 +400,9 @@ class PDFCutterGUI:
                 )
                 self._refresh_review_ui()
                 self.tabs.selected_index = 2
-                self.preview_info.value = "✅ Extraction complete! Review entries in Step 3."
+                self.preview_info.value = "\u2705 Extraction complete! Review entries in Step 3."
             except Exception as exc:
-                self.preview_info.value = f"❌ {exc}"
+                self.preview_info.value = f"\u274c {exc}"
             self.page.update()
 
         threading.Thread(target=run, daemon=True).start()
@@ -417,12 +418,12 @@ class PDFCutterGUI:
         self.entries_list.controls.append(
             ft.Row(
                 [
-                    ft.Text("✓", width=32, weight=ft.FontWeight.BOLD),
+                    ft.Text("\u2713", width=32, weight=ft.FontWeight.BOLD),
                     ft.Text("Lv", width=36, weight=ft.FontWeight.BOLD),
                     ft.Text("Title", expand=True, weight=ft.FontWeight.BOLD),
                     ft.Text("Pg", width=56, weight=ft.FontWeight.BOLD),
                     ft.Text("Type", width=80, weight=ft.FontWeight.BOLD),
-                    ft.Text("PDF→", width=60, weight=ft.FontWeight.BOLD),
+                    ft.Text("PDF\u2192", width=60, weight=ft.FontWeight.BOLD),
                     ft.Text("", width=40),
                 ],
                 spacing=4,
@@ -480,10 +481,14 @@ class PDFCutterGUI:
                 ],
                 spacing=4,
             )
-            # Highlight rows with warnings
             bg = ft.Colors.ORANGE_900 if entry.warnings else None
             self.entries_list.controls.append(
-                ft.Container(content=row, bgcolor=bg, border_radius=6, padding=ft.padding.symmetric(vertical=2))
+                ft.Container(
+                    content=row,
+                    bgcolor=bg,
+                    border_radius=6,
+                    padding=ft.padding.symmetric(vertical=2),
+                )
             )
 
         self.summary_text.value = build_summary_markdown(self.toc_entries)
@@ -525,15 +530,21 @@ class PDFCutterGUI:
         self.split_plan_view.controls.clear()
         plan = generate_split_plan(self.toc_entries)
         if not plan:
-            self.split_plan_view.controls.append(ft.Text("No entries yet.", color=ft.Colors.GREY_400))
+            self.split_plan_view.controls.append(
+                ft.Text("No entries yet.", color=ft.Colors.GREY_400)
+            )
             return
         for item in plan:
-            warn_icon = ft.Icon(ft.Icons.WARNING_AMBER, color=ft.Colors.ORANGE, size=18) if item.warnings else None
+            warn_icon = (
+                ft.Icon(ft.Icons.WARNING_AMBER, color=ft.Colors.ORANGE, size=18)
+                if item.warnings
+                else None
+            )
             self.split_plan_view.controls.append(
                 ft.ListTile(
                     title=ft.Text(item.title),
                     subtitle=ft.Text(
-                        f"PDF pages {item.start_page}–{item.end_page}  →  {item.output_name}.pdf"
+                        f"PDF pages {item.start_page}\u2013{item.end_page}  \u2192  {item.output_name}.pdf"
                     ),
                     trailing=warn_icon,
                 )
@@ -541,12 +552,12 @@ class PDFCutterGUI:
 
     def _split_pdf(self, _):
         if not self.pdf_path:
-            self.split_status.value = "❌ No PDF loaded."
+            self.split_status.value = "\u274c No PDF loaded."
             self.page.update()
             return
 
         self.progress_ring.visible = True
-        self.split_status.value = "Splitting… please wait."
+        self.split_status.value = "Splitting\u2026 please wait."
         self.page.update()
 
         def run():
@@ -563,11 +574,11 @@ class PDFCutterGUI:
                 ]
                 files, zip_path = split_pdf(self.pdf_path, plan_dicts, self.prefix_input.value)
                 self.split_status.value = (
-                    f"✅ Done! Saved {len(files)} file(s).\nZIP: {zip_path}"
+                    f"\u2705 Done! Saved {len(files)} file(s).\nZIP: {zip_path}"
                 )
                 self.split_status.color = ft.Colors.GREEN
             except Exception as exc:
-                self.split_status.value = f"❌ {exc}"
+                self.split_status.value = f"\u274c {exc}"
                 self.split_status.color = ft.Colors.RED
             self.progress_ring.visible = False
             self.page.update()
