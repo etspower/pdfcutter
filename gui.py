@@ -1,7 +1,8 @@
-import asyncio
 import flet as ft
 import os
 import threading
+import traceback
+from datetime import datetime
 from dotenv import load_dotenv
 from typing import List
 
@@ -33,10 +34,53 @@ class PDFCutterGUI:
         self.setup_ui()
 
     # ------------------------------------------------------------------ #
+    #  LOGGING                                                             #
+    # ------------------------------------------------------------------ #
+
+    def _log(self, msg: str, level: str = "INFO"):
+        """Append a timestamped line to the log panel."""
+        ts = datetime.now().strftime("%H:%M:%S")
+        colors = {"INFO": ft.Colors.CYAN_200, "OK": ft.Colors.GREEN_300,
+                  "WARN": ft.Colors.AMBER_300, "ERROR": ft.Colors.RED_300}
+        color = colors.get(level, ft.Colors.WHITE)
+        self.log_list.controls.append(
+            ft.Text(f"[{ts}] [{level}] {msg}", color=color, size=12,
+                    font_family="monospace", selectable=True)
+        )
+        # keep last 200 lines
+        if len(self.log_list.controls) > 200:
+            self.log_list.controls.pop(0)
+        self.page.update()
+
+    # ------------------------------------------------------------------ #
     #  UI BUILD                                                            #
     # ------------------------------------------------------------------ #
 
     def setup_ui(self):
+        # --- log panel (always visible at bottom) ---
+        self.log_list = ft.ListView(
+            expand=True,
+            spacing=1,
+            auto_scroll=True,
+        )
+        log_panel = ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Text("📋 Log", weight=ft.FontWeight.BOLD, size=13),
+                    ft.TextButton("Clear", on_click=lambda _: self._clear_log()),
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Container(
+                    self.log_list,
+                    height=130,
+                    bgcolor=ft.Colors.GREY_900,
+                    border_radius=8,
+                    padding=8,
+                    border=ft.Border.all(1, ft.Colors.GREY_700),
+                ),
+            ], spacing=4),
+            padding=ft.padding.only(top=8),
+        )
+
         header = ft.Row(
             [
                 ft.Icon(ft.Icons.CONTENT_CUT, size=30, color=ft.Colors.AMBER),
@@ -77,11 +121,16 @@ class PDFCutterGUI:
 
         self.page.add(
             ft.Column(
-                [header, self.tabs],
+                [header, self.tabs, log_panel],
                 expand=True,
                 spacing=12,
             )
         )
+        self._log("App started. Flet version: " + ft.version.version)
+
+    def _clear_log(self):
+        self.log_list.controls.clear()
+        self.page.update()
 
     # ---- Tab 1 -------------------------------------------------------- #
 
@@ -299,29 +348,38 @@ class PDFCutterGUI:
     # ------------------------------------------------------------------ #
 
     async def _pick_file(self, e):
-        """Open file picker dialog using Flet 0.80+ async API."""
-        result = await ft.FilePicker().pick_files(allowed_extensions=["pdf"])
-        if result:
-            self.pdf_path = result[0].path
-            self.total_pages = get_pdf_info(self.pdf_path)
-            self.pdf_status.value = (
-                f"\u2705 {os.path.basename(self.pdf_path)}  ({self.total_pages} pages)"
-            )
-        else:
-            self.pdf_status.value = "No file selected."
+        self._log("Opening file picker…")
+        try:
+            result = await ft.FilePicker().pick_files(allowed_extensions=["pdf"])
+            if result:
+                self.pdf_path = result[0].path
+                self._log(f"Reading page count: {self.pdf_path}")
+                self.total_pages = get_pdf_info(self.pdf_path)
+                self.pdf_status.value = (
+                    f"\u2705 {os.path.basename(self.pdf_path)}  ({self.total_pages} pages)"
+                )
+                self._log(f"Loaded: {os.path.basename(self.pdf_path)}, {self.total_pages} pages", "OK")
+            else:
+                self.pdf_status.value = "No file selected."
+                self._log("File picker cancelled.", "WARN")
+        except Exception as exc:
+            self._log(f"_pick_file error: {exc}\n{traceback.format_exc()}", "ERROR")
         self.page.update()
 
     def _load_env(self, _):
+        self._log("Loading config from .env…")
         load_dotenv(override=True)
         self.api_base.value = os.getenv("PDFCUTTER_API_BASE_URL", Config.API_BASE_URL)
         self.api_key.value = os.getenv("PDFCUTTER_API_KEY", "")
         self.model_name.value = os.getenv("PDFCUTTER_MODEL", Config.MODEL)
         self.api_timeout.value = os.getenv("PDFCUTTER_TIMEOUT", str(Config.TIMEOUT))
         self.sys_prompt.value = os.getenv("PDFCUTTER_SYSTEM_PROMPT", Config.SYSTEM_PROMPT)
+        self._log("Config reloaded from .env", "OK")
         self.page.update()
 
     def _test_connection(self, _):
         self.conn_status.value = "Testing..."
+        self._log(f"Testing connection to {self.api_base.value} model={self.model_name.value}")
         self.page.update()
 
         def run():
@@ -332,11 +390,18 @@ class PDFCutterGUI:
                     self.model_name.value,
                     int(self.api_timeout.value or "30"),
                 )
-                self.conn_status.value = "\u2705 Connection successful!" if ok else "\u274c Connection failed."
-                self.conn_status.color = ft.Colors.GREEN if ok else ft.Colors.RED
+                if ok:
+                    self.conn_status.value = "\u2705 Connection successful!"
+                    self.conn_status.color = ft.Colors.GREEN
+                    self._log("Connection test passed.", "OK")
+                else:
+                    self.conn_status.value = "\u274c Connection failed."
+                    self.conn_status.color = ft.Colors.RED
+                    self._log("Connection test returned False.", "WARN")
             except Exception as exc:
                 self.conn_status.value = f"\u274c {exc}"
                 self.conn_status.color = ft.Colors.RED
+                self._log(f"Connection error: {exc}\n{traceback.format_exc()}", "ERROR")
             self.page.update()
 
         threading.Thread(target=run, daemon=True).start()
@@ -344,16 +409,23 @@ class PDFCutterGUI:
     def _extract_images(self, _):
         if not self.pdf_path:
             self.preview_info.value = "\u274c Please select a PDF first."
+            self._log("Extract aborted: no PDF selected.", "WARN")
             self.page.update()
             return
         if not self.toc_range_input.value.strip():
             self.preview_info.value = "\u274c Please enter TOC page range."
+            self._log("Extract aborted: no page range.", "WARN")
             self.page.update()
             return
 
         try:
+            self._log(f"Parsing page range: '{self.toc_range_input.value}'")
             pages = parse_page_range(self.toc_range_input.value, self.total_pages)
+            self._log(f"Pages to render: {pages}")
+
+            self._log("Rendering pages with PyMuPDF…")
             self.image_paths = extract_toc_images(self.pdf_path, pages)
+            self._log(f"Rendered {len(self.image_paths)} image(s): {self.image_paths}", "OK")
 
             self.gallery.controls.clear()
             for img_path in self.image_paths:
@@ -362,26 +434,30 @@ class PDFCutterGUI:
                         src=img_path,
                         width=180,
                         height=260,
-                        fit=ft.ImageFit.CONTAIN,  # kept: still valid in 0.80
+                        fit="contain",      # string literal — avoids ft.ImageFit enum issues
                         border_radius=8,
                     )
                 )
             self.preview_info.value = f"\u2705 Extracted {len(self.image_paths)} TOC page image(s)."
         except Exception as exc:
             self.preview_info.value = f"\u274c {exc}"
+            self._log(f"extract_images error: {exc}\n{traceback.format_exc()}", "ERROR")
         self.page.update()
 
     def _run_extraction(self, _):
         if not self.image_paths:
             self.preview_info.value = "\u274c Extract TOC images first."
+            self._log("AI extraction aborted: no images.", "WARN")
             self.page.update()
             return
 
         self.preview_info.value = "\U0001f916 AI is thinking\u2026 please wait."
+        self._log(f"Sending {len(self.image_paths)} image(s) to AI model={self.model_name.value}…")
         self.page.update()
 
         def run():
             try:
+                self._log("Calling extract_toc_from_images…")
                 raw_text = extract_toc_from_images(
                     self.image_paths,
                     self.api_base.value,
@@ -390,16 +466,25 @@ class PDFCutterGUI:
                     int(self.api_timeout.value or "30"),
                     self.sys_prompt.value,
                 )
+                self._log(f"AI raw response length: {len(raw_text)} chars")
                 self.raw_json = raw_text
+
+                self._log("Parsing extraction result…")
                 result = parse_extraction_result(raw_text, [1], self.model_name.value)
+                self._log(f"Parsed {len(result.entries)} TOC entries.")
+
+                self._log("Computing page mapping…")
                 self.toc_entries = compute_page_mapping(
                     result.entries, self.total_pages, 1
                 )
+                self._log(f"Page mapping done. {len(self.toc_entries)} entries.", "OK")
+
                 self._refresh_review_ui()
                 self.tabs.selected_index = 2
                 self.preview_info.value = "\u2705 Extraction complete! Review entries in Step 3."
             except Exception as exc:
                 self.preview_info.value = f"\u274c {exc}"
+                self._log(f"AI extraction error: {exc}\n{traceback.format_exc()}", "ERROR")
             self.page.update()
 
         threading.Thread(target=run, daemon=True).start()
@@ -507,15 +592,19 @@ class PDFCutterGUI:
             entry.pdf_start_page = int(value) if str(value).isdigit() else None
 
     def _delete_row(self, idx: int):
+        self._log(f"Deleted row {idx}")
         self.toc_entries.pop(idx)
         self._refresh_review_ui()
 
     def _add_row(self, _):
+        self._log("Added new empty row.")
         self.toc_entries.append(TocEntry(level=1, title="New Entry", page_number_type="arabic"))
         self._refresh_review_ui()
 
     def _recompute(self, _):
+        self._log("Recomputing page mapping…")
         self.toc_entries = compute_page_mapping(self.toc_entries, self.total_pages, 1)
+        self._log("Recompute done.", "OK")
         self._refresh_review_ui()
 
     # ------------------------------------------------------------------ #
@@ -549,16 +638,19 @@ class PDFCutterGUI:
     def _split_pdf(self, _):
         if not self.pdf_path:
             self.split_status.value = "\u274c No PDF loaded."
+            self._log("Split aborted: no PDF.", "WARN")
             self.page.update()
             return
 
         self.progress_ring.visible = True
         self.split_status.value = "Splitting\u2026 please wait."
+        self._log("Starting PDF split…")
         self.page.update()
 
         def run():
             try:
                 plan = generate_split_plan(self.toc_entries)
+                self._log(f"Split plan: {len(plan)} sections.")
                 plan_dicts = [
                     {
                         "enabled": p.enabled,
@@ -573,9 +665,11 @@ class PDFCutterGUI:
                     f"\u2705 Done! Saved {len(files)} file(s).\nZIP: {zip_path}"
                 )
                 self.split_status.color = ft.Colors.GREEN
+                self._log(f"Split complete: {len(files)} files → {zip_path}", "OK")
             except Exception as exc:
                 self.split_status.value = f"\u274c {exc}"
                 self.split_status.color = ft.Colors.RED
+                self._log(f"Split error: {exc}\n{traceback.format_exc()}", "ERROR")
             self.progress_ring.visible = False
             self.page.update()
 
