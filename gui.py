@@ -45,7 +45,6 @@ class PDFCutterGUI:
             alignment=ft.MainAxisAlignment.CENTER,
         )
 
-        # Flet 0.80+: Tabs = Tabs(length=N, content=Column([TabBar(...), TabBarView(...)]))
         tab1_content = self._build_config_tab()
         tab2_content = self._build_preview_tab()
         tab3_content = self._build_review_tab()
@@ -189,7 +188,7 @@ class PDFCutterGUI:
                     ft.Container(
                         self.gallery,
                         height=420,
-                        border=ft.border.all(1, ft.Colors.GREY_700),
+                        border=ft.Border.all(1, ft.Colors.GREY_700),
                         border_radius=10,
                         padding=10,
                         expand=False,
@@ -230,7 +229,7 @@ class PDFCutterGUI:
                                 content=self.entries_list,
                                 expand=3,
                                 height=520,
-                                border=ft.border.all(1, ft.Colors.GREY_700),
+                                border=ft.Border.all(1, ft.Colors.GREY_700),
                                 border_radius=10,
                                 padding=8,
                             ),
@@ -273,7 +272,7 @@ class PDFCutterGUI:
                     ft.Container(
                         self.split_plan_view,
                         height=400,
-                        border=ft.border.all(1, ft.Colors.GREY_700),
+                        border=ft.Border.all(1, ft.Colors.GREY_700),
                         border_radius=10,
                         padding=8,
                     ),
@@ -363,7 +362,7 @@ class PDFCutterGUI:
                         src=img_path,
                         width=180,
                         height=260,
-                        fit=ft.ImageFit.CONTAIN,
+                        fit=ft.ImageFit.CONTAIN,  # kept: still valid in 0.80
                         border_radius=8,
                     )
                 )
@@ -412,7 +411,6 @@ class PDFCutterGUI:
     def _refresh_review_ui(self):
         self.entries_list.controls.clear()
 
-        # Column header
         self.entries_list.controls.append(
             ft.Row(
                 [
@@ -458,9 +456,9 @@ class PDFCutterGUI:
                         width=80,
                         dense=True,
                         options=[
-                            ft.dropdown.Option("arabic"),
-                            ft.dropdown.Option("roman"),
-                            ft.dropdown.Option("unknown"),
+                            ft.DropdownOption(key="arabic"),
+                            ft.DropdownOption(key="roman"),
+                            ft.DropdownOption(key="unknown"),
                         ],
                         on_change=lambda e, idx=i: self._update_field(idx, "page_number_type", e.control.value),
                     ),
