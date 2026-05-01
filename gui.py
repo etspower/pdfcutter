@@ -61,13 +61,27 @@ class PDFCutterGUI:
         self.tabs = ft.Tabs(
             selected_index=0,
             animation_duration=300,
-            tabs=[
-                ft.Tab(text="1. Config", icon="settings", content=self.tab_config),
-                ft.Tab(text="2. Preview", icon="image", content=self.tab_preview),
-                ft.Tab(text="3. Review", icon="edit", content=self.tab_review),
-                ft.Tab(text="4. Split", icon="save", content=self.tab_split),
-            ],
+            length=4,
             expand=1,
+            content=ft.Column([
+                ft.TabBar(
+                    tabs=[
+                        ft.Tab(label="1. Config", icon="settings"),
+                        ft.Tab(label="2. Preview", icon="image"),
+                        ft.Tab(label="3. Review", icon="edit"),
+                        ft.Tab(label="4. Split", icon="save"),
+                    ]
+                ),
+                ft.TabBarView(
+                    expand=1,
+                    controls=[
+                        self.tab_config,
+                        self.tab_preview,
+                        self.tab_review,
+                        self.tab_split,
+                    ]
+                )
+            ], expand=1)
         )
 
         self.page.add(header, self.tabs)
