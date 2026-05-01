@@ -45,38 +45,40 @@ class PDFCutterGUI:
             alignment=ft.MainAxisAlignment.CENTER,
         )
 
-        tabs = ft.Tabs(
-            selected_index=0,
-            animation_duration=300,
-            expand=True,
+        # Flet 0.80+: Tabs = Tabs(length=N, content=Column([TabBar(...), TabBarView(...)]))
+        tab1_content = self._build_config_tab()
+        tab2_content = self._build_preview_tab()
+        tab3_content = self._build_review_tab()
+        tab4_content = self._build_split_tab()
+
+        self.tab_bar = ft.TabBar(
             tabs=[
-                ft.Tab(
-                    text="1. Config & Upload",
-                    icon=ft.Icons.SETTINGS,
-                    content=self._build_config_tab(),
-                ),
-                ft.Tab(
-                    text="2. TOC Preview",
-                    icon=ft.Icons.IMAGE,
-                    content=self._build_preview_tab(),
-                ),
-                ft.Tab(
-                    text="3. Review & Edit",
-                    icon=ft.Icons.EDIT,
-                    content=self._build_review_tab(),
-                ),
-                ft.Tab(
-                    text="4. Split & Download",
-                    icon=ft.Icons.SAVE,
-                    content=self._build_split_tab(),
-                ),
+                ft.Tab(label="1. Config & Upload", icon=ft.Icons.SETTINGS),
+                ft.Tab(label="2. TOC Preview", icon=ft.Icons.IMAGE),
+                ft.Tab(label="3. Review & Edit", icon=ft.Icons.EDIT),
+                ft.Tab(label="4. Split & Download", icon=ft.Icons.SAVE),
             ],
         )
-        self.tabs = tabs
+
+        self.tab_view = ft.TabBarView(
+            expand=True,
+            controls=[tab1_content, tab2_content, tab3_content, tab4_content],
+        )
+
+        self.tabs = ft.Tabs(
+            length=4,
+            selected_index=0,
+            animation_duration=ft.Duration(milliseconds=300),
+            expand=True,
+            content=ft.Column(
+                expand=True,
+                controls=[self.tab_bar, self.tab_view],
+            ),
+        )
 
         self.page.add(
             ft.Column(
-                [header, tabs],
+                [header, self.tabs],
                 expand=True,
                 spacing=12,
             )
@@ -122,7 +124,7 @@ class PDFCutterGUI:
                     ft.Text("Step 1: Select PDF & Configure API", size=18, weight=ft.FontWeight.W_600),
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Select PDF File",
                                 icon=ft.Icons.UPLOAD_FILE,
                                 on_click=self._pick_file,
@@ -139,12 +141,12 @@ class PDFCutterGUI:
                     self.sys_prompt,
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Test Connection",
                                 icon=ft.Icons.WIFI,
                                 on_click=self._test_connection,
                             ),
-                            ft.OutlinedButton(
+                            ft.Button(
                                 "Load from .env",
                                 icon=ft.Icons.REFRESH,
                                 on_click=self._load_env,
@@ -171,7 +173,7 @@ class PDFCutterGUI:
                     ft.Text("Step 2: Preview TOC Pages & Run AI", size=18, weight=ft.FontWeight.W_600),
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Extract TOC Images",
                                 icon=ft.Icons.IMAGE_SEARCH,
                                 on_click=self._extract_images,
@@ -210,12 +212,12 @@ class PDFCutterGUI:
                     ft.Text("Step 3: Review & Edit TOC Entries", size=18, weight=ft.FontWeight.W_600),
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Recompute Mapping",
                                 icon=ft.Icons.REFRESH,
                                 on_click=self._recompute,
                             ),
-                            ft.OutlinedButton(
+                            ft.Button(
                                 "Add Row",
                                 icon=ft.Icons.ADD,
                                 on_click=self._add_row,
@@ -299,9 +301,9 @@ class PDFCutterGUI:
 
     async def _pick_file(self, e):
         """Open file picker dialog using Flet 0.80+ async API."""
-        files = await ft.FilePicker().pick_files(allowed_extensions=["pdf"])
-        if files:
-            self.pdf_path = files[0].path
+        result = await ft.FilePicker().pick_files(allowed_extensions=["pdf"])
+        if result:
+            self.pdf_path = result[0].path
             self.total_pages = get_pdf_info(self.pdf_path)
             self.pdf_status.value = (
                 f"\u2705 {os.path.basename(self.pdf_path)}  ({self.total_pages} pages)"
