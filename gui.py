@@ -9,7 +9,7 @@ from typing import List
 
 from src.config import Config
 from src.pdf_utils import get_pdf_info, parse_page_range, extract_toc_images, split_pdf
-from src.llm_client import test_connection, extract_toc_from_images
+from src.llm_client import test_connection, extract_toc_from_images, NVIDIA_VISION_MODELS
 from src.toc_extract import parse_extraction_result
 from src.split_logic import compute_page_mapping, generate_split_plan
 from src.ui_helpers import build_summary_markdown
@@ -163,7 +163,12 @@ class PDFCutterGUI:
             can_reveal_password=True,
             expand=True,
         )
-        self.model_name = ft.TextField(label="Model", value=Config.MODEL, expand=True)
+        self.model_name = ft.TextField(
+            label="Model",
+            value=Config.MODEL,
+            hint_text="Must support vision, e.g. nvidia/llama-3.2-11b-vision-instruct",
+            expand=True,
+        )
         self.api_timeout = ft.TextField(
             label="Timeout (s)",
             value=str(Config.TIMEOUT),
@@ -179,6 +184,13 @@ class PDFCutterGUI:
             expand=True,
         )
         self.conn_status = ft.Text("")
+
+        vision_hint = ft.Text(
+            "Vision models: " + "  |  ".join(NVIDIA_VISION_MODELS),
+            size=11,
+            color=ft.Colors.GREY_400,
+            italic=True,
+        )
 
         return ft.Container(
             content=ft.Column(
@@ -200,6 +212,7 @@ class PDFCutterGUI:
                     self.api_base,
                     self.api_key,
                     ft.Row([self.model_name, self.api_timeout]),
+                    vision_hint,
                     self.sys_prompt,
                     ft.Row(
                         [
@@ -479,6 +492,7 @@ class PDFCutterGUI:
                     self.model_name.value,
                     int(self.api_timeout.value or "30"),
                     self.sys_prompt.value,
+                    log_fn=self._log,
                 )
                 self._log(f"AI raw response length: {len(raw_text)} chars")
                 self.raw_json = raw_text
