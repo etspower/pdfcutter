@@ -3,6 +3,7 @@ import os
 import threading
 import traceback
 from datetime import datetime
+from importlib.metadata import version as pkg_version, PackageNotFoundError
 from dotenv import load_dotenv
 from typing import List
 
@@ -13,6 +14,11 @@ from src.toc_extract import parse_extraction_result
 from src.split_logic import compute_page_mapping, generate_split_plan
 from src.ui_helpers import build_summary_markdown
 from src.schemas import TocEntry
+
+try:
+    _FLET_VER = pkg_version("flet")
+except PackageNotFoundError:
+    _FLET_VER = "unknown"
 
 
 class PDFCutterGUI:
@@ -38,16 +44,23 @@ class PDFCutterGUI:
     # ------------------------------------------------------------------ #
 
     def _log(self, msg: str, level: str = "INFO"):
-        """Append a timestamped line to the log panel."""
         ts = datetime.now().strftime("%H:%M:%S")
-        colors = {"INFO": ft.Colors.CYAN_200, "OK": ft.Colors.GREEN_300,
-                  "WARN": ft.Colors.AMBER_300, "ERROR": ft.Colors.RED_300}
+        colors = {
+            "INFO": ft.Colors.CYAN_200,
+            "OK": ft.Colors.GREEN_300,
+            "WARN": ft.Colors.AMBER_300,
+            "ERROR": ft.Colors.RED_300,
+        }
         color = colors.get(level, ft.Colors.WHITE)
         self.log_list.controls.append(
-            ft.Text(f"[{ts}] [{level}] {msg}", color=color, size=12,
-                    font_family="monospace", selectable=True)
+            ft.Text(
+                f"[{ts}] [{level}] {msg}",
+                color=color,
+                size=12,
+                font_family="monospace",
+                selectable=True,
+            )
         )
-        # keep last 200 lines
         if len(self.log_list.controls) > 200:
             self.log_list.controls.pop(0)
         self.page.update()
@@ -57,28 +70,29 @@ class PDFCutterGUI:
     # ------------------------------------------------------------------ #
 
     def setup_ui(self):
-        # --- log panel (always visible at bottom) ---
-        self.log_list = ft.ListView(
-            expand=True,
-            spacing=1,
-            auto_scroll=True,
-        )
+        self.log_list = ft.ListView(expand=True, spacing=1, auto_scroll=True)
         log_panel = ft.Container(
-            content=ft.Column([
-                ft.Row([
-                    ft.Text("📋 Log", weight=ft.FontWeight.BOLD, size=13),
-                    ft.TextButton("Clear", on_click=lambda _: self._clear_log()),
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                ft.Container(
-                    self.log_list,
-                    height=130,
-                    bgcolor=ft.Colors.GREY_900,
-                    border_radius=8,
-                    padding=8,
-                    border=ft.Border.all(1, ft.Colors.GREY_700),
-                ),
-            ], spacing=4),
-            padding=ft.padding.only(top=8),
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.Text("\U0001f4cb Log", weight=ft.FontWeight.BOLD, size=13),
+                            ft.TextButton("Clear", on_click=lambda _: self._clear_log()),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    ft.Container(
+                        self.log_list,
+                        height=130,
+                        bgcolor=ft.Colors.GREY_900,
+                        border_radius=8,
+                        padding=8,
+                        border=ft.Border.all(1, ft.Colors.GREY_700),
+                    ),
+                ],
+                spacing=4,
+            ),
+            padding=ft.Padding.only(top=8),
         )
 
         header = ft.Row(
@@ -126,7 +140,7 @@ class PDFCutterGUI:
                 spacing=12,
             )
         )
-        self._log("App started. Flet version: " + ft.version.version)
+        self._log(f"App started. Flet version: {_FLET_VER}")
 
     def _clear_log(self):
         self.log_list.controls.clear()
@@ -348,7 +362,7 @@ class PDFCutterGUI:
     # ------------------------------------------------------------------ #
 
     async def _pick_file(self, e):
-        self._log("Opening file picker…")
+        self._log("Opening file picker\u2026")
         try:
             result = await ft.FilePicker().pick_files(allowed_extensions=["pdf"])
             if result:
@@ -367,7 +381,7 @@ class PDFCutterGUI:
         self.page.update()
 
     def _load_env(self, _):
-        self._log("Loading config from .env…")
+        self._log("Loading config from .env\u2026")
         load_dotenv(override=True)
         self.api_base.value = os.getenv("PDFCUTTER_API_BASE_URL", Config.API_BASE_URL)
         self.api_key.value = os.getenv("PDFCUTTER_API_KEY", "")
@@ -423,7 +437,7 @@ class PDFCutterGUI:
             pages = parse_page_range(self.toc_range_input.value, self.total_pages)
             self._log(f"Pages to render: {pages}")
 
-            self._log("Rendering pages with PyMuPDF…")
+            self._log("Rendering pages with PyMuPDF\u2026")
             self.image_paths = extract_toc_images(self.pdf_path, pages)
             self._log(f"Rendered {len(self.image_paths)} image(s): {self.image_paths}", "OK")
 
@@ -434,7 +448,7 @@ class PDFCutterGUI:
                         src=img_path,
                         width=180,
                         height=260,
-                        fit="contain",      # string literal — avoids ft.ImageFit enum issues
+                        fit="contain",
                         border_radius=8,
                     )
                 )
@@ -452,12 +466,12 @@ class PDFCutterGUI:
             return
 
         self.preview_info.value = "\U0001f916 AI is thinking\u2026 please wait."
-        self._log(f"Sending {len(self.image_paths)} image(s) to AI model={self.model_name.value}…")
+        self._log(f"Sending {len(self.image_paths)} image(s) to AI model={self.model_name.value}\u2026")
         self.page.update()
 
         def run():
             try:
-                self._log("Calling extract_toc_from_images…")
+                self._log("Calling extract_toc_from_images\u2026")
                 raw_text = extract_toc_from_images(
                     self.image_paths,
                     self.api_base.value,
@@ -469,11 +483,11 @@ class PDFCutterGUI:
                 self._log(f"AI raw response length: {len(raw_text)} chars")
                 self.raw_json = raw_text
 
-                self._log("Parsing extraction result…")
+                self._log("Parsing extraction result\u2026")
                 result = parse_extraction_result(raw_text, [1], self.model_name.value)
                 self._log(f"Parsed {len(result.entries)} TOC entries.")
 
-                self._log("Computing page mapping…")
+                self._log("Computing page mapping\u2026")
                 self.toc_entries = compute_page_mapping(
                     result.entries, self.total_pages, 1
                 )
@@ -568,7 +582,7 @@ class PDFCutterGUI:
                     content=row,
                     bgcolor=bg,
                     border_radius=6,
-                    padding=ft.padding.symmetric(vertical=2),
+                    padding=ft.Padding.symmetric(vertical=2),
                 )
             )
 
@@ -602,7 +616,7 @@ class PDFCutterGUI:
         self._refresh_review_ui()
 
     def _recompute(self, _):
-        self._log("Recomputing page mapping…")
+        self._log("Recomputing page mapping\u2026")
         self.toc_entries = compute_page_mapping(self.toc_entries, self.total_pages, 1)
         self._log("Recompute done.", "OK")
         self._refresh_review_ui()
@@ -644,7 +658,7 @@ class PDFCutterGUI:
 
         self.progress_ring.visible = True
         self.split_status.value = "Splitting\u2026 please wait."
-        self._log("Starting PDF split…")
+        self._log("Starting PDF split\u2026")
         self.page.update()
 
         def run():
@@ -665,7 +679,7 @@ class PDFCutterGUI:
                     f"\u2705 Done! Saved {len(files)} file(s).\nZIP: {zip_path}"
                 )
                 self.split_status.color = ft.Colors.GREEN
-                self._log(f"Split complete: {len(files)} files → {zip_path}", "OK")
+                self._log(f"Split complete: {len(files)} files \u2192 {zip_path}", "OK")
             except Exception as exc:
                 self.split_status.value = f"\u274c {exc}"
                 self.split_status.color = ft.Colors.RED
