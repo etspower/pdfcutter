@@ -89,7 +89,7 @@ class PDFCutterGUI:
                 [
                     ft.Text("Step 1: Select PDF & API Settings", size=20, weight=ft.FontWeight.W_600),
                     ft.Row([
-                        ft.ElevatedButton("Select PDF File", icon="upload_file", on_click=self.pick_pdf_clicked),
+                        ft.Button("Select PDF File", icon="upload_file", on_click=self.pick_pdf_clicked),
                         self.pdf_status
                     ]),
                     self.toc_range_input,
@@ -101,8 +101,8 @@ class PDFCutterGUI:
                     ft.Row([self.api_timeout]),
                     self.sys_prompt,
                     ft.Row([
-                        ft.ElevatedButton("Test Connection", on_click=self.test_api_connection),
-                        ft.ElevatedButton("Load from .env", on_click=self.load_env_to_ui),
+                        ft.Button("Test Connection", on_click=self.test_api_connection),
+                        ft.Button("Load from .env", on_click=self.load_env_to_ui),
                     ]),
                     self.conn_status
                 ],
@@ -121,11 +121,11 @@ class PDFCutterGUI:
                 [
                     ft.Text("Step 2: Preview TOC Pages", size=20, weight=ft.FontWeight.W_600),
                     ft.Row([
-                        ft.ElevatedButton("Extract TOC Images", icon="image_search", on_click=self.extract_images_clicked),
+                        ft.Button("Extract TOC Images", icon="image_search", on_click=self.extract_images_clicked),
                         self.preview_info
                     ]),
-                    ft.Container(self.gallery, height=400, border=ft.border.all(1, ft.Colors.GREY_700), border_radius=10, padding=10),
-                    ft.ElevatedButton("Run AI TOC Extraction", icon="auto_awesome", variant=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE_700), height=50, on_click=self.run_extraction_clicked),
+                    ft.Container(self.gallery, height=400, border=ft.Border.all(1, ft.Colors.GREY_700), border_radius=10, padding=10),
+                    ft.Button("Run AI TOC Extraction", icon="auto_awesome", color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE_700, height=50, on_click=self.run_extraction_clicked),
                 ],
                 spacing=20
             ),
@@ -141,11 +141,11 @@ class PDFCutterGUI:
                 [
                     ft.Text("Step 3: Review & Edit TOC", size=20, weight=ft.FontWeight.W_600),
                     ft.Row([
-                        ft.ElevatedButton("Recompute Mapping", icon="refresh", on_click=self.recompute_clicked),
-                        ft.ElevatedButton("Add Row", icon="add", on_click=self.add_row_clicked),
+                        ft.Button("Recompute Mapping", icon="refresh", on_click=self.recompute_clicked),
+                        ft.Button("Add Row", icon="add", on_click=self.add_row_clicked),
                     ]),
                     ft.Row([
-                        ft.Container(self.entries_list, expand=3, height=500, border=ft.border.all(1, ft.Colors.GREY_700), border_radius=10),
+                        ft.Container(self.entries_list, expand=3, height=500, border=ft.Border.all(1, ft.Colors.GREY_700), border_radius=10),
                         ft.Container(ft.Column([ft.Text("Summary", size=18, weight="bold"), self.summary_text], scroll=ft.ScrollMode.AUTO), expand=1, height=500, padding=10, bgcolor=ft.Colors.GREY_900, border_radius=10)
                     ], expand=True)
                 ],
@@ -165,10 +165,10 @@ class PDFCutterGUI:
                 [
                     ft.Text("Step 4: Execute Split", size=20, weight=ft.FontWeight.W_600),
                     ft.Text("Review the final plan below before processing."),
-                    ft.Container(self.split_plan_view, height=400, border=ft.border.all(1, ft.Colors.GREY_700), border_radius=10),
+                    ft.Container(self.split_plan_view, height=400, border=ft.Border.all(1, ft.Colors.GREY_700), border_radius=10),
                     ft.Row([
                         self.prefix_input,
-                        ft.ElevatedButton("Split PDF & Save", icon="content_cut", variant=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_700), height=50, on_click=self.split_clicked)
+                        ft.Button("Split PDF & Save", icon="content_cut", bgcolor=ft.Colors.GREEN_700, height=50, on_click=self.split_clicked)
                     ]),
                     self.progress_bar,
                     self.split_status
