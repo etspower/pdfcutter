@@ -43,7 +43,7 @@ class PDFCutterGUI:
         )
 
         # File Picker
-        self.file_picker = ft.FilePicker(on_result=self.on_file_result)
+        self.file_picker = ft.FilePicker()
         self.page.overlay.append(self.file_picker)
 
         # Tab 1: Config
@@ -89,7 +89,7 @@ class PDFCutterGUI:
                 [
                     ft.Text("Step 1: Select PDF & API Settings", size=20, weight=ft.FontWeight.W_600),
                     ft.Row([
-                        ft.ElevatedButton("Select PDF File", icon="upload_file", on_click=lambda _: self.file_picker.pick_files()),
+                        ft.ElevatedButton("Select PDF File", icon="upload_file", on_click=self.pick_pdf_clicked),
                         self.pdf_status
                     ]),
                     self.toc_range_input,
@@ -179,9 +179,10 @@ class PDFCutterGUI:
         )
 
     # Event Handlers
-    def on_file_result(self, e):
-        if e.files:
-            self.pdf_path = e.files[0].path
+    async def pick_pdf_clicked(self, e):
+        files = await self.file_picker.pick_files()
+        if files:
+            self.pdf_path = files[0].path
             self.total_pages = get_pdf_info(self.pdf_path)
             self.pdf_status.value = f"Selected: {os.path.basename(self.pdf_path)} ({self.total_pages} pages)"
             self.page.update()
