@@ -9,6 +9,7 @@ A local Gradio web app for splitting scanned language learning PDFs based on the
 - **TOC Preview:** View the extracted TOC pages as images.
 - **Review & Edit:** See the AI-extracted TOC in a structured table. Edit any errors, add or remove entries, and let the app recalculate the actual PDF page mappings.
 - **Split & Download:** Generate individual PDF files for each chapter and download them all as a single ZIP archive.
+- **Desktop GUI:** A native desktop application (`gui.py`) for processing large files without browser overhead.
 
 ## Prerequisites
 
@@ -44,10 +45,17 @@ sudo apt-get install -y poppler-utils
 
 ## Running the App
 
+### Option A: Web App (Gradio)
 ```bash
 python app.py
 ```
 The app will be available at `http://localhost:7860`.
+
+### Option B: Desktop App (Flet)
+Recommended for very large PDFs.
+```bash
+python gui.py
+```
 
 ## Architecture
 - **Gradio App (`app.py`)**: The main user interface with tabs for each step of the process.
