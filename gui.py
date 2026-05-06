@@ -365,6 +365,22 @@ class PDFCutterGUI:
     def _build_review_tab(self) -> ft.Control:
         self.entries_list = ft.ListView(expand=True, spacing=6)
         self.summary_text = ft.Markdown("*No data yet.*", expand=True)
+        self.offset_input = ft.TextField(
+            value="0",
+            width=60,
+            dense=True,
+            text_align=ft.TextAlign.CENTER,
+            on_change=self._on_offset_change,
+        )
+        self.preview_image = ft.Image(
+            src="",
+            width=200,
+            height=280,
+            fit=ft.ImageFit.CONTAIN,
+            border_radius=8,
+            visible=False,
+        )
+        self.preview_label = ft.Text("", size=11, color=ft.Colors.GREY_400)
 
         return ft.Container(
             content=ft.Column(
@@ -385,13 +401,7 @@ class PDFCutterGUI:
                             ft.VerticalDivider(),
                             ft.Text("Page Offset:", weight=ft.FontWeight.BOLD),
                             ft.IconButton(ft.Icons.REMOVE, on_click=lambda _: self._adjust_offset(-1)),
-                            self.offset_input := ft.TextField(
-                                value="0",
-                                width=60,
-                                dense=True,
-                                text_align=ft.TextAlign.CENTER,
-                                on_change=self._on_offset_change,
-                            ),
+                            self.offset_input,
                             ft.IconButton(ft.Icons.ADD, on_click=lambda _: self._adjust_offset(1)),
                             ft.Text("\u2b50 Please confirm/adjust offset so PDF mapping is correct.", size=12, color=ft.Colors.AMBER_300, weight=ft.FontWeight.BOLD),
                         ],
@@ -415,15 +425,8 @@ class PDFCutterGUI:
                                         self.summary_text,
                                         ft.Divider(),
                                         ft.Text("Page Preview", size=14, weight=ft.FontWeight.W_500),
-                                        self.preview_image := ft.Image(
-                                            src="",
-                                            width=200,
-                                            height=280,
-                                            fit=ft.ImageFit.CONTAIN,
-                                            border_radius=8,
-                                            visible=False,
-                                        ),
-                                        self.preview_label := ft.Text("", size=11, color=ft.Colors.GREY_400),
+                                        self.preview_image,
+                                        self.preview_label,
                                     ],
                                     scroll=ft.ScrollMode.AUTO,
                                 ),
