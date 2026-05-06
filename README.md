@@ -4,13 +4,13 @@
 
 A local desktop application for splitting scanned language learning PDFs based on their Table of Contents (TOC). 
 
-`pdfcutter` uses advanced OCR (Online/Offline) and vision-capable Large Language Models (LLMs) to read the TOC from PDF pages, automatically extract chapter headings and page numbers, and then slices the original PDF into individual chapter files.
+`pdfcutter` uses advanced OCR (Online/Offline) to read the TOC from PDF pages, automatically extract chapter headings and page numbers, and then slices the original PDF into individual chapter files.
 
 ## Features
 - **Flexible Recognition Modes:**
   - **Online OCR (ocr.space):** Fast, supports 20+ languages and multiple OCR engines.
   - **Offline OCR (Docling):** Local, high-accuracy document conversion with layout analysis. No API key required.
-- **AI-Powered Extraction:** Uses vision models (via OpenRouter/NVIDIA) or text-based structured extraction from OCR results.
+- **Automated Extraction:** Extracts text from OCR results and parses it into a structured table format.
 - **Review & Edit:** See the extracted TOC in a structured table. Edit errors, add/remove entries, and recalculate PDF page mappings.
 - **Split & Download:** Generate individual PDF files for each chapter and download them as a ZIP archive.
 - **Native Desktop GUI:** Built with Flet for a smooth desktop experience.
@@ -18,7 +18,7 @@ A local desktop application for splitting scanned language learning PDFs based o
 ## Prerequisites
 
 - **Python 3.10+**
-- **Poppler:** Required for `pymupdf` and `pdf2image` image extraction (if using image-based workflows).
+- **Poppler:** Required for `pymupdf` and `pdf2image` image extraction.
 - **OCR.space API Key (Optional):** If you want to use the online recognition mode. Get a free key at [ocr.space](https://ocr.space/ocrapi).
 
 ## Installation
@@ -39,7 +39,7 @@ A local desktop application for splitting scanned language learning PDFs based o
     ```bash
     cp .env.example .env
     ```
-    Edit `.env` to include your `OCR_SPACE_API_KEY` or LLM credentials.
+    Edit `.env` to include your `OCR_SPACE_API_KEY`.
 
 ## Running the App
 
@@ -51,16 +51,22 @@ python gui.py
 ## How it Works
 
 1. **Step 1: Config & Upload:** Select your PDF and specify the TOC page range. Choose between **Online (ocr.space)** or **Offline (Docling)** recognition.
-2. **Step 2: Preview & Run:** Preview the TOC pages and click **Run OCR Extraction**. The app extracts text from images and optionally uses an LLM to structure it into JSON.
+2. **Step 2: Preview & Run:** Preview the TOC pages and click **Run OCR Extraction**. The app extracts text and structures it into a editable list.
 3. **Step 3: Review & Edit:** The app computes an offset based on the first identified Arabic page number. You can manually adjust titles, levels, or PDF start pages here.
 4. **Step 4: Execute Split:** Review the split plan and click **Split PDF & Save**.
 
 ## Architecture
 - **GUI (`gui.py`)**: Flet-based desktop interface.
 - **OCR Clients (`src/ocr_client.py`, `src/docling_client.py`)**: Integration with ocr.space (online) and Docling (offline).
-- **LLM Client (`src/llm_client.py`)**: Structured data extraction using vision or text-based LLM prompts.
 - **PDF Utils (`src/pdf_utils.py`)**: PDF rendering and splitting using `PyMuPDF` and `pypdf`.
 - **Logic Modules (`src/toc_extract.py`, `src/split_logic.py`)**: Data validation and page offset calculations.
+
+## Credits & Special Thanks
+This project is built upon the following amazing open-source projects:
+- [Docling](https://docling-project.github.io/docling/) - For powerful local OCR and document conversion.
+- [OCR.space](https://ocr.space/) - For reliable online OCR API services.
+- [Flet](https://flet.dev/) - For enabling the creation of beautiful desktop apps with Python.
+- [PyMuPDF](https://pymupdf.readthedocs.io/) & [pypdf](https://pypdf.readthedocs.io/) - For PDF manipulation and rendering.
 
 ## License
 MIT
