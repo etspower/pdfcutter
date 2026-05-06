@@ -1,79 +1,64 @@
 # pdfcutter
 
-A local Gradio web app for splitting scanned language learning PDFs based on their Table of Contents (TOC). 
+A local desktop application for splitting scanned language learning PDFs based on their Table of Contents (TOC). 
 
-`pdfcutter` uses vision-capable Large Language Models (LLMs) to read the TOC from the images of the PDF pages, automatically extract the chapter headings and their corresponding page numbers, and then slices the original PDF into multiple individual chapter files.
+`pdfcutter` uses advanced OCR (Online/Offline) and vision-capable Large Language Models (LLMs) to read the TOC from PDF pages, automatically extract chapter headings and page numbers, and then slices the original PDF into individual chapter files.
 
 ## Features
-- **Upload & Config:** Upload a PDF and specify the page range where the TOC is located. Configure OpenAI-compatible API details.
-- **TOC Preview:** View the extracted TOC pages as images.
-- **Review & Edit:** See the AI-extracted TOC in a structured table. Edit any errors, add or remove entries, and let the app recalculate the actual PDF page mappings.
-- **Split & Download:** Generate individual PDF files for each chapter and download them all as a single ZIP archive.
-- **Desktop GUI:** A native desktop application (`gui.py`) for processing large files without browser overhead.
+- **Flexible Recognition Modes:**
+  - **Online OCR (ocr.space):** Fast, supports 20+ languages and multiple OCR engines.
+  - **Offline OCR (Docling):** Local, high-accuracy document conversion with layout analysis. No API key required.
+- **AI-Powered Extraction:** Uses vision models (via OpenRouter/NVIDIA) or text-based structured extraction from OCR results.
+- **Review & Edit:** See the extracted TOC in a structured table. Edit errors, add/remove entries, and recalculate PDF page mappings.
+- **Split & Download:** Generate individual PDF files for each chapter and download them as a ZIP archive.
+- **Native Desktop GUI:** Built with Flet for a smooth desktop experience.
 
 ## Prerequisites
 
-This app uses `pdf2image` to convert PDF pages into images. It requires `poppler` to be installed on your system.
-
-### Installing Poppler (Linux / GitHub Codespaces)
-
-```bash
-sudo apt-get update
-sudo apt-get install -y poppler-utils
-```
+- **Python 3.10+**
+- **Poppler:** Required for `pymupdf` and `pdf2image` image extraction (if using image-based workflows).
+- **OCR.space API Key (Optional):** If you want to use the online recognition mode. Get a free key at [ocr.space](https://ocr.space/ocrapi).
 
 ## Installation
 
-1. Clone the repository and navigate to the directory:
+1. Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/pdfcutter.git
+    git clone https://github.com/etspower/pdfcutter.git
     cd pdfcutter
     ```
 
-2. Create a virtual environment and install the requirements:
+2. Install dependencies:
     ```bash
-    python -m venv venv
-    source venv/bin/activate
     pip install -r requirements.txt
     ```
+    *Note: Installing `docling` for offline OCR will download approximately 500MB of models on first run.*
 
-3. Create a `.env` file from the example:
+3. Setup environment variables:
     ```bash
     cp .env.example .env
     ```
-    Then, edit the `.env` file with your API credentials and preferences.
+    Edit `.env` to include your `OCR_SPACE_API_KEY` or LLM credentials.
 
 ## Running the App
 
-### Option A: Web App (Gradio)
-```bash
-python app.py
-```
-The app will be available at `http://localhost:7860`.
-
-### Option B: Desktop App (Flet)
-Recommended for very large PDFs.
+Run the desktop application:
 ```bash
 python gui.py
 ```
 
+## How it Works
+
+1. **Step 1: Config & Upload:** Select your PDF and specify the TOC page range. Choose between **Online (ocr.space)** or **Offline (Docling)** recognition.
+2. **Step 2: Preview & Run:** Preview the TOC pages and click **Run OCR Extraction**. The app extracts text from images and optionally uses an LLM to structure it into JSON.
+3. **Step 3: Review & Edit:** The app computes an offset based on the first identified Arabic page number. You can manually adjust titles, levels, or PDF start pages here.
+4. **Step 4: Execute Split:** Review the split plan and click **Split PDF & Save**.
+
 ## Architecture
-- **Gradio App (`app.py`)**: The main user interface with tabs for each step of the process.
-- **PDF Utils (`src/pdf_utils.py`)**: Handlers for counting pages, converting pages to images using `pdf2image`, and splitting the PDF with `pypdf`.
-- **LLM Client (`src/llm_client.py`)**: A generic OpenAI-compatible API client using `httpx` to send image inputs to the vision model and enforce JSON output.
-- **Extraction & Splitting Logic (`src/toc_extract.py`, `src/split_logic.py`)**: Parses the raw JSON response, validates it via Pydantic schemas, and computes offset mappings to translate printed page numbers into actual PDF indices.
+- **GUI (`gui.py`)**: Flet-based desktop interface.
+- **OCR Clients (`src/ocr_client.py`, `src/docling_client.py`)**: Integration with ocr.space (online) and Docling (offline).
+- **LLM Client (`src/llm_client.py`)**: Structured data extraction using vision or text-based LLM prompts.
+- **PDF Utils (`src/pdf_utils.py`)**: PDF rendering and splitting using `PyMuPDF` and `pypdf`.
+- **Logic Modules (`src/toc_extract.py`, `src/split_logic.py`)**: Data validation and page offset calculations.
 
-## Known Limitations
-- The offset calculation is heuristic based on the first Arabic page number found. If the front matter structure is complex, you may need to manually edit the starting PDF pages in the "Review & Edit" tab.
-- Very large PDFs might take some time to split or render.
-
-## Manual Test Workflow
-1. Start the app.
-2. Upload a sample PDF.
-3. Check the "TOC Page Ranges" and enter `1-2` (or wherever your TOC is).
-4. Click "Extract TOC Images" and look at the "TOC Preview" tab.
-5. In "Upload & Config", ensure your `.env` values are loaded or manually enter your API Key and Model Name (e.g., `gpt-4o`).
-6. Go to "TOC Preview" and click "Run AI TOC Extraction".
-7. Check the results in "Review & Edit". Fix any misidentified page numbers.
-8. Go to "Split & Download" and click "Split PDF & Create ZIP".
-9. Download the ZIP and verify the slices.
+## License
+MIT

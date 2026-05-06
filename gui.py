@@ -14,6 +14,17 @@ from src.toc_extract import parse_extraction_result
 from src.split_logic import compute_page_mapping, generate_split_plan
 from src.ui_helpers import build_summary_markdown
 from src.schemas import TocEntry
+from src.ocr_client import (
+    extract_text_from_images_online,
+    test_ocr_space_connection,
+    OCR_ENGINES,
+    OCR_LANGUAGES,
+)
+from src.docling_client import (
+    extract_text_from_images_offline,
+    extract_text_from_pdf_offline,
+    check_docling_available,
+)
 
 try:
     _FLET_VER = pkg_version("flet")
@@ -36,6 +47,7 @@ class PDFCutterGUI:
         self.image_paths: List[str] = []
         self.toc_entries: List[TocEntry] = []
         self.raw_json: str = ""
+        self.ocr_mode: str = "online"  # "online" or "offline"
 
         self.setup_ui()
 
@@ -155,6 +167,84 @@ class PDFCutterGUI:
             hint_text="12-14",
             expand=True,
         )
+
+        # --- Recognition Mode Radio ---
+        self.mode_radio = ft.RadioGroup(
+            value="online",
+            on_change=self._on_mode_change,
+            content=ft.Row(
+                [
+                    ft.Radio(value="online", label="Online Recognition (ocr.space)"),
+                    ft.Radio(value="offline", label="Offline Recognition (Docling)"),
+                ],
+            ),
+        )
+
+        # --- Online panel widgets ---
+        self.ocr_api_key = ft.TextField(
+            label="ocr.space API Key",
+            value=os.getenv("OCR_SPACE_API_KEY", ""),
+            password=True,
+            can_reveal_password=True,
+            expand=True,
+        )
+        self.ocr_language = ft.Dropdown(
+            label="OCR Language",
+            value="eng",
+            width=250,
+            options=[ft.DropdownOption(key=v, text=k) for k, v in OCR_LANGUAGES.items()],
+        )
+        self.ocr_engine = ft.Dropdown(
+            label="OCR Engine",
+            value="1",
+            width=320,
+            options=[ft.DropdownOption(key=str(v), text=k) for k, v in OCR_ENGINES.items()],
+        )
+        self.conn_status = ft.Text("")
+
+        self.online_panel = ft.Column(
+            [
+                ft.Text("ocr.space API Configuration", size=16, weight=ft.FontWeight.W_500),
+                self.ocr_api_key,
+                ft.Row([self.ocr_language, self.ocr_engine]),
+                ft.Row(
+                    [
+                        ft.Button(
+                            "Test API Key",
+                            icon=ft.Icons.WIFI,
+                            on_click=self._test_ocr_space,
+                        ),
+                    ]
+                ),
+                self.conn_status,
+            ],
+            spacing=10,
+            visible=True,
+        )
+
+        # --- Offline panel widgets ---
+        docling_ok = check_docling_available()
+        docling_status_text = (
+            "\u2705 Docling is installed and ready."
+            if docling_ok
+            else "\u274c Docling is NOT installed. Run: pip install docling"
+        )
+        docling_status_color = ft.Colors.GREEN_300 if docling_ok else ft.Colors.RED_300
+        self.offline_panel = ft.Column(
+            [
+                ft.Text("Docling (Local / Offline OCR)", size=16, weight=ft.FontWeight.W_500),
+                ft.Text(docling_status_text, color=docling_status_color),
+                ft.Text(
+                    "Docling runs locally — no API key needed.\n"
+                    "First run downloads ~500 MB of models.",
+                    size=12, color=ft.Colors.GREY_400, italic=True,
+                ),
+            ],
+            spacing=10,
+            visible=False,
+        )
+
+        # --- Advanced LLM section (kept for backward compat) ---
         self.api_base = ft.TextField(label="API Base URL", value=Config.API_BASE_URL, expand=True)
         self.api_key = ft.TextField(
             label="API Key",
@@ -166,7 +256,7 @@ class PDFCutterGUI:
         self.model_name = ft.TextField(
             label="Model",
             value=Config.MODEL,
-            hint_text="Must support vision, e.g. nvidia/llama-3.2-11b-vision-instruct",
+            hint_text="Must support vision",
             expand=True,
         )
         self.api_timeout = ft.TextField(
@@ -183,19 +273,45 @@ class PDFCutterGUI:
             max_lines=6,
             expand=True,
         )
-        self.conn_status = ft.Text("")
 
-        vision_hint = ft.Text(
-            "Vision models: " + "  |  ".join(NVIDIA_VISION_MODELS),
-            size=11,
-            color=ft.Colors.GREY_400,
-            italic=True,
+        llm_panel = ft.ExpansionTile(
+            title=ft.Text("Advanced: LLM API (legacy)", size=14),
+            subtitle=ft.Text("OpenRouter / NVIDIA vision model settings", size=11),
+            initially_expanded=False,
+            controls=[
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            self.api_base,
+                            self.api_key,
+                            ft.Row([self.model_name, self.api_timeout]),
+                            self.sys_prompt,
+                            ft.Row(
+                                [
+                                    ft.Button(
+                                        "Test LLM Connection",
+                                        icon=ft.Icons.WIFI,
+                                        on_click=self._test_connection,
+                                    ),
+                                    ft.Button(
+                                        "Load from .env",
+                                        icon=ft.Icons.REFRESH,
+                                        on_click=self._load_env,
+                                    ),
+                                ]
+                            ),
+                        ],
+                        spacing=10,
+                    ),
+                    padding=ft.Padding.only(left=16, right=16, bottom=12),
+                ),
+            ],
         )
 
         return ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("Step 1: Select PDF & Configure API", size=18, weight=ft.FontWeight.W_600),
+                    ft.Text("Step 1: Select PDF & Configure Recognition", size=18, weight=ft.FontWeight.W_600),
                     ft.Row(
                         [
                             ft.Button(
@@ -208,27 +324,12 @@ class PDFCutterGUI:
                     ),
                     self.toc_range_input,
                     ft.Divider(),
-                    ft.Text("API Configuration", size=16, weight=ft.FontWeight.W_500),
-                    self.api_base,
-                    self.api_key,
-                    ft.Row([self.model_name, self.api_timeout]),
-                    vision_hint,
-                    self.sys_prompt,
-                    ft.Row(
-                        [
-                            ft.Button(
-                                "Test Connection",
-                                icon=ft.Icons.WIFI,
-                                on_click=self._test_connection,
-                            ),
-                            ft.Button(
-                                "Load from .env",
-                                icon=ft.Icons.REFRESH,
-                                on_click=self._load_env,
-                            ),
-                        ]
-                    ),
-                    self.conn_status,
+                    ft.Text("Recognition Mode", size=16, weight=ft.FontWeight.W_500),
+                    self.mode_radio,
+                    self.online_panel,
+                    self.offline_panel,
+                    ft.Divider(),
+                    llm_panel,
                 ],
                 scroll=ft.ScrollMode.AUTO,
                 spacing=16,
@@ -245,7 +346,7 @@ class PDFCutterGUI:
         return ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("Step 2: Preview TOC Pages & Run AI", size=18, weight=ft.FontWeight.W_600),
+                    ft.Text("Step 2: Preview TOC Pages & Run OCR", size=18, weight=ft.FontWeight.W_600),
                     ft.Row(
                         [
                             ft.Button(
@@ -254,7 +355,7 @@ class PDFCutterGUI:
                                 on_click=self._extract_images,
                             ),
                             ft.FilledButton(
-                                "Run AI TOC Extraction",
+                                "Run OCR Extraction",
                                 icon=ft.Icons.AUTO_AWESOME,
                                 on_click=self._run_extraction,
                             ),
@@ -396,6 +497,7 @@ class PDFCutterGUI:
     def _load_env(self, _):
         self._log("Loading config from .env\u2026")
         load_dotenv(override=True)
+        self.ocr_api_key.value = os.getenv("OCR_SPACE_API_KEY", "")
         self.api_base.value = os.getenv("PDFCUTTER_API_BASE_URL", Config.API_BASE_URL)
         self.api_key.value = os.getenv("PDFCUTTER_API_KEY", "")
         self.model_name.value = os.getenv("PDFCUTTER_MODEL", Config.MODEL)
@@ -429,6 +531,46 @@ class PDFCutterGUI:
                 self.conn_status.value = f"\u274c {exc}"
                 self.conn_status.color = ft.Colors.RED
                 self._log(f"Connection error: {exc}\n{traceback.format_exc()}", "ERROR")
+            self.page.update()
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _on_mode_change(self, e):
+        """Toggle visibility of online/offline config panels."""
+        self.ocr_mode = e.control.value
+        self.online_panel.visible = (self.ocr_mode == "online")
+        self.offline_panel.visible = (self.ocr_mode == "offline")
+        self._log(f"Recognition mode set to: {self.ocr_mode}")
+        self.page.update()
+
+    def _test_ocr_space(self, _):
+        """Test the ocr.space API key."""
+        api_key = self.ocr_api_key.value.strip()
+        if not api_key:
+            self.conn_status.value = "\u274c Please enter an ocr.space API key."
+            self.conn_status.color = ft.Colors.RED
+            self.page.update()
+            return
+
+        self.conn_status.value = "Testing ocr.space API key\u2026"
+        self._log("Testing ocr.space API key\u2026")
+        self.page.update()
+
+        def run():
+            try:
+                ok = test_ocr_space_connection(api_key)
+                if ok:
+                    self.conn_status.value = "\u2705 ocr.space API key is valid!"
+                    self.conn_status.color = ft.Colors.GREEN
+                    self._log("ocr.space API key test passed.", "OK")
+                else:
+                    self.conn_status.value = "\u274c API key test failed."
+                    self.conn_status.color = ft.Colors.RED
+                    self._log("ocr.space API key test failed.", "WARN")
+            except Exception as exc:
+                self.conn_status.value = f"\u274c {exc}"
+                self.conn_status.color = ft.Colors.RED
+                self._log(f"ocr.space test error: {exc}", "ERROR")
             self.page.update()
 
         threading.Thread(target=run, daemon=True).start()
@@ -474,32 +616,89 @@ class PDFCutterGUI:
     def _run_extraction(self, _):
         if not self.image_paths:
             self.preview_info.value = "\u274c Extract TOC images first."
-            self._log("AI extraction aborted: no images.", "WARN")
+            self._log("Extraction aborted: no images.", "WARN")
             self.page.update()
             return
 
-        self.preview_info.value = "\U0001f916 AI is thinking\u2026 please wait."
-        self._log(f"Sending {len(self.image_paths)} image(s) to AI model={self.model_name.value}\u2026")
+        mode = self.ocr_mode
+        self.preview_info.value = f"\U0001f50d Running {mode} OCR\u2026 please wait."
+        self._log(f"Starting {mode} extraction on {len(self.image_paths)} image(s)\u2026")
         self.page.update()
 
         def run():
             try:
-                self._log("Calling extract_toc_from_images\u2026")
-                raw_text = extract_toc_from_images(
-                    self.image_paths,
-                    self.api_base.value,
-                    self.api_key.value,
-                    self.model_name.value,
-                    int(self.api_timeout.value or "30"),
-                    self.sys_prompt.value,
-                    log_fn=self._log,
-                )
-                self._log(f"AI raw response length: {len(raw_text)} chars")
+                raw_text = ""
+
+                if mode == "online":
+                    # --- Online: ocr.space ---
+                    api_key = self.ocr_api_key.value.strip()
+                    if not api_key:
+                        self.preview_info.value = "\u274c Please enter an ocr.space API key in Step 1."
+                        self._log("Online OCR aborted: no API key.", "WARN")
+                        self.page.update()
+                        return
+
+                    lang = self.ocr_language.value or "eng"
+                    engine = int(self.ocr_engine.value or "1")
+                    self._log(f"ocr.space: lang={lang}, engine={engine}")
+
+                    raw_text = extract_text_from_images_online(
+                        self.image_paths,
+                        api_key,
+                        language=lang,
+                        ocr_engine=engine,
+                        timeout=60,
+                        log_fn=self._log,
+                    )
+
+                elif mode == "offline":
+                    # --- Offline: Docling ---
+                    if not check_docling_available():
+                        self.preview_info.value = (
+                            "\u274c Docling not installed. Run: pip install docling"
+                        )
+                        self._log("Offline OCR aborted: docling not installed.", "ERROR")
+                        self.page.update()
+                        return
+
+                    raw_text = extract_text_from_images_offline(
+                        self.image_paths,
+                        log_fn=self._log,
+                    )
+
+                if not raw_text.strip():
+                    self.preview_info.value = "\u274c OCR returned empty text."
+                    self._log("OCR returned empty text.", "WARN")
+                    self.page.update()
+                    return
+
+                self._log(f"OCR raw text length: {len(raw_text)} chars")
                 self.raw_json = raw_text
 
-                self._log("Parsing extraction result\u2026")
-                result = parse_extraction_result(raw_text, [1], self.model_name.value)
-                self._log(f"Parsed {len(result.entries)} TOC entries.")
+                # Try structured extraction via LLM if configured
+                llm_key = self.api_key.value.strip()
+                if llm_key:
+                    self._log("Sending OCR text to LLM for structured TOC extraction\u2026")
+                    structured_text = extract_toc_from_images(
+                        self.image_paths,
+                        self.api_base.value,
+                        self.api_key.value,
+                        self.model_name.value,
+                        int(self.api_timeout.value or "30"),
+                        self.sys_prompt.value,
+                        log_fn=self._log,
+                    )
+                    self._log(f"LLM structured response: {len(structured_text)} chars")
+                    self.raw_json = structured_text
+
+                    result = parse_extraction_result(structured_text, [1], self.model_name.value)
+                    self._log(f"Parsed {len(result.entries)} TOC entries.")
+                else:
+                    self._log(
+                        "No LLM API key configured — attempting direct parse of OCR text.",
+                        "WARN",
+                    )
+                    result = parse_extraction_result(raw_text, [1], f"{mode}_ocr")
 
                 self._log("Computing page mapping\u2026")
                 self.toc_entries = compute_page_mapping(
@@ -512,7 +711,7 @@ class PDFCutterGUI:
                 self.preview_info.value = "\u2705 Extraction complete! Review entries in Step 3."
             except Exception as exc:
                 self.preview_info.value = f"\u274c {exc}"
-                self._log(f"AI extraction error: {exc}\n{traceback.format_exc()}", "ERROR")
+                self._log(f"Extraction error: {exc}\n{traceback.format_exc()}", "ERROR")
             self.page.update()
 
         threading.Thread(target=run, daemon=True).start()
