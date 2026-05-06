@@ -369,14 +369,14 @@ class PDFCutterGUI:
             value="0",
             width=60,
             dense=True,
-            text_align=ft.TextAlign.CENTER,
+            text_align="center",
             on_change=self._on_offset_change,
         )
         self.preview_image = ft.Image(
             src="",
             width=200,
             height=280,
-            fit=ft.ImageFit.CONTAIN,
+            fit="contain",
             border_radius=8,
             visible=False,
         )
@@ -405,7 +405,7 @@ class PDFCutterGUI:
                             ft.IconButton(ft.Icons.ADD, on_click=lambda _: self._adjust_offset(1)),
                             ft.Text("\u2b50 Please confirm/adjust offset so PDF mapping is correct.", size=12, color=ft.Colors.AMBER_300, weight=ft.FontWeight.BOLD),
                         ],
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        vertical_alignment="center",
                     ),
                     ft.Row(
                         [
