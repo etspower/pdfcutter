@@ -1,5 +1,7 @@
 # pdfcutter
 
+[English](README.md) | [简体中文](README_zh.md) | [Français (Canada)](README_fr_CA.md)
+
 A local desktop application for splitting scanned language learning PDFs based on their Table of Contents (TOC). 
 
 `pdfcutter` uses advanced OCR (Online/Offline) and vision-capable Large Language Models (LLMs) to read the TOC from PDF pages, automatically extract chapter headings and page numbers, and then slices the original PDF into individual chapter files.
