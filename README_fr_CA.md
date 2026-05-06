@@ -12,6 +12,8 @@ Une application de bureau locale pour diviser les fichiers PDF d'apprentissage d
   - **OCR hors ligne (Docling) :** Conversion de documents locale de haute précision avec analyse de la mise en page. Aucune clé API requise.
 - **Extraction automatisée :** Extrait le texte des résultats OCR et le transforme en un format de tableau structuré éditable.
 - **Révision et édition :** Visualisez la table des matières extraite dans un tableau structuré. Corrigez les erreurs, ajoutez ou supprimez des entrées et laissez l'application recalculer les correspondances réelles des pages PDF.
+- **Contrôle du décalage de page :** Ajustez facilement la correspondance entre les numéros de page imprimés et les pages PDF réelles grâce à un décalage global (avec boutons +/-).
+- **Aperçu des pages en direct :** Prévisualisez n'importe quelle page du PDF instantanément dans le tableau de correspondance pour vérifier l'exactitude avant le découpage.
 - **Division et téléchargement :** Générez des fichiers PDF individuels pour chaque chapitre et téléchargez-les tous dans une archive ZIP.
 - **Interface graphique de bureau native :** Construite avec Flet pour une expérience de bureau fluide.
 
@@ -52,7 +54,7 @@ python gui.py
 
 1. **Étape 1 : Configuration et téléversement :** Sélectionnez votre PDF et spécifiez la plage de pages de la table des matières. Choisissez entre la reconnaissance **En ligne (LlamaParse)** ou **Hors ligne (Docling)**.
 2. **Étape 2 : Aperçu et exécution :** Visualisez les pages de la table des matières et cliquez sur **Run OCR Extraction**. L'application extrait le texte et le structure en une liste modifiable.
-3. **Étape 3 : Révision et édition :** L'application calcule un décalage basé sur le premier numéro de page arabe identifié. Vous pouvez ajuster manuellement les titres, les niveaux ou les pages de début du PDF ici.
+3. **Étape 3 : Révision et édition :** L'application calcule un décalage initial. Vous pouvez ajuster manuellement ce **Décalage Global** à l'aide des boutons +/- et utiliser le **bouton d'aperçu** (icône d'œil) sur chaque ligne pour vérifier la correspondance en temps réel.
 4. **Étape 4 : Exécution de la division :** Vérifiez le plan de division et cliquez sur **Split PDF & Save**.
 
 ## Architecture

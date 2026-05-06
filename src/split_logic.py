@@ -23,29 +23,31 @@ def sanitize_filename(name: str) -> str:
     name = re.sub(r'[-\s]+', '_', name)
     return name[:50]
 
-def compute_page_mapping(entries: List[TocEntry], total_pdf_pages: int, last_toc_pdf_page: int) -> List[TocEntry]:
-    # Find the first arabic page to determine offset
-    offset = None
+def compute_page_mapping(entries: List[TocEntry], total_pdf_pages: int, last_toc_pdf_page: int, manual_offset: int = None) -> int:
+    """
+    Computes pdf_start_page for each entry.
+    Returns the offset used.
+    """
+    offset = manual_offset
     
-    for i, entry in enumerate(entries):
-        if not entry.enabled:
-            continue
-        if entry.page_number_type == "arabic" and entry.printed_page is not None:
-            try:
-                printed_num = int(entry.printed_page)
-                # Heuristic: offset = actual_pdf_page - printed_page
-                # We assume the first arabic page starts immediately after the last TOC page
-                if offset is None:
+    if offset is None:
+        # Heuristic: Find the first arabic page to determine offset
+        for i, entry in enumerate(entries):
+            if not entry.enabled:
+                continue
+            if entry.page_number_type == "arabic" and entry.printed_page is not None:
+                try:
+                    printed_num = int(entry.printed_page)
+                    # Heuristic: offset = actual_pdf_page - printed_page
+                    # We assume the first arabic page starts immediately after the last TOC page
                     estimated_pdf_page = last_toc_pdf_page + 1
                     offset = estimated_pdf_page - printed_num
-                    entry.warnings.append(f"Estimated offset: {offset}")
-            except ValueError:
-                pass
+                    break
+                except ValueError:
+                    pass
 
     if offset is None:
         offset = 0
-        if entries:
-            entries[0].warnings.append("Could not determine offset, using 0.")
 
     # Assign pdf_start_page
     for entry in entries:
@@ -67,8 +69,7 @@ def compute_page_mapping(entries: List[TocEntry], total_pdf_pages: int, last_toc
             val = roman_to_int(str(entry.printed_page))
             if val > 0:
                 # Typically front matter has 0 offset or a different offset. 
-                # Let's just use the value directly + some front cover offset if needed, 
-                # but for simplicity assume roman = pdf page if covers are included, or needs manual adjustment
+                # Let's just use the value directly for now, or consider offset if needed.
                 entry.pdf_start_page = val
                 entry.warnings.append("Roman numeral mapping might be inaccurate.")
             else:
@@ -92,7 +93,7 @@ def compute_page_mapping(entries: List[TocEntry], total_pdf_pages: int, last_toc
             
         current.output_name = f"{current.pdf_start_page:03d}_{sanitize_filename(current.title)}"
 
-    return entries
+    return offset
 
 def generate_split_plan(entries: List[TocEntry]) -> List[SplitPlanItem]:
     plan = []

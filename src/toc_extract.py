@@ -30,7 +30,7 @@ def parse_extraction_result(raw_text: str, toc_pages: list[int], model_name: str
                 page_number_type=item.page_number_type
             ))
             
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, ValidationError) as e:
         # Fallback to regex parsing if raw_text is plain OCR text
         import re
         lines = raw_text.splitlines()

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+pdfcutter.log
+debug.log
+error.log
+temp/
+output/
+.venv/
+.gemini/

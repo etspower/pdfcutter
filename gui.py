@@ -45,6 +45,7 @@ class PDFCutterGUI:
         self.toc_entries: List[TocEntry] = []
         self.raw_json: str = ""
         self.ocr_mode: str = "online"  # "online" or "offline"
+        self.page_offset: int = 0
 
         self.setup_ui()
 
@@ -381,7 +382,20 @@ class PDFCutterGUI:
                                 icon=ft.Icons.ADD,
                                 on_click=self._add_row,
                             ),
-                        ]
+                            ft.VerticalDivider(),
+                            ft.Text("Page Offset:", weight=ft.FontWeight.BOLD),
+                            ft.IconButton(ft.Icons.REMOVE, on_click=lambda _: self._adjust_offset(-1)),
+                            self.offset_input := ft.TextField(
+                                value="0",
+                                width=60,
+                                dense=True,
+                                text_align=ft.TextAlign.CENTER,
+                                on_change=self._on_offset_change,
+                            ),
+                            ft.IconButton(ft.Icons.ADD, on_click=lambda _: self._adjust_offset(1)),
+                            ft.Text("\u2b50 Please confirm/adjust offset so PDF mapping is correct.", size=12, color=ft.Colors.AMBER_300, weight=ft.FontWeight.BOLD),
+                        ],
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                     ft.Row(
                         [
@@ -396,8 +410,20 @@ class PDFCutterGUI:
                             ft.Container(
                                 content=ft.Column(
                                     [
-                                        ft.Text("Summary", size=16, weight=ft.FontWeight.BOLD),
+                                        ft.Text("Summary & Preview", size=16, weight=ft.FontWeight.BOLD),
+                                        ft.Text("Verify that 'PDF\u2192' pages match the actual PDF content.", size=11, color=ft.Colors.GREY_400),
                                         self.summary_text,
+                                        ft.Divider(),
+                                        ft.Text("Page Preview", size=14, weight=ft.FontWeight.W_500),
+                                        self.preview_image := ft.Image(
+                                            src="",
+                                            width=200,
+                                            height=280,
+                                            fit=ft.ImageFit.CONTAIN,
+                                            border_radius=8,
+                                            visible=False,
+                                        ),
+                                        self.preview_label := ft.Text("", size=11, color=ft.Colors.GREY_400),
                                     ],
                                     scroll=ft.ScrollMode.AUTO,
                                 ),
@@ -593,7 +619,8 @@ class PDFCutterGUI:
                         return
 
                     self._log(f"Creating temp PDF for LlamaParse...")
-                    temp_pdf_path = extract_toc_pdf(self.pdf_path, self.toc_pages)
+                    pages = parse_page_range(self.toc_range_input.value, self.total_pages)
+                    temp_pdf_path = extract_toc_pdf(self.pdf_path, pages)
 
                     raw_text = extract_text_from_images_online(
                         temp_pdf_path,
@@ -651,10 +678,15 @@ class PDFCutterGUI:
                     result = parse_extraction_result(raw_text, [1], f"{mode}_ocr")
 
                 self._log("Computing page mapping\u2026")
-                self.toc_entries = compute_page_mapping(
-                    result.entries, self.total_pages, 1
+                toc_pages = parse_page_range(self.toc_range_input.value, self.total_pages)
+                last_toc_page = toc_pages[-1] if toc_pages else 1
+                
+                self.page_offset = compute_page_mapping(
+                    result.entries, self.total_pages, last_toc_page
                 )
-                self._log(f"Page mapping done. {len(self.toc_entries)} entries.", "OK")
+                self.offset_input.value = str(self.page_offset)
+                self.toc_entries = result.entries
+                self._log(f"Initial page mapping done. Offset detected: {self.page_offset}", "OK")
 
                 self._refresh_review_ui()
                 self.tabs.selected_index = 2
@@ -682,6 +714,7 @@ class PDFCutterGUI:
                     ft.Text("Pg", width=56, weight=ft.FontWeight.BOLD),
                     ft.Text("Type", width=80, weight=ft.FontWeight.BOLD),
                     ft.Text("PDF\u2192", width=60, weight=ft.FontWeight.BOLD),
+                    ft.Text("Pre", width=40, weight=ft.FontWeight.BOLD),
                     ft.Text("", width=40),
                 ],
                 spacing=4,
@@ -729,6 +762,12 @@ class PDFCutterGUI:
                         width=60,
                         dense=True,
                         on_change=lambda e, idx=i: self._update_field(idx, "pdf_start_page", e.control.value),
+                    ),
+                    ft.IconButton(
+                        ft.Icons.REMOVE_RED_EYE_OUTLINED,
+                        icon_color=ft.Colors.BLUE_300,
+                        tooltip="Preview this page",
+                        on_click=lambda _, idx=i: self._show_preview(self.toc_entries[idx].pdf_start_page),
                     ),
                     ft.IconButton(
                         ft.Icons.DELETE_OUTLINE,
@@ -779,10 +818,50 @@ class PDFCutterGUI:
         self._refresh_review_ui()
 
     def _recompute(self, _):
-        self._log("Recomputing page mapping\u2026")
-        self.toc_entries = compute_page_mapping(self.toc_entries, self.total_pages, 1)
+        self._log(f"Recomputing page mapping with offset {self.page_offset}\u2026")
+        toc_pages = parse_page_range(self.toc_range_input.value, self.total_pages)
+        last_toc_page = toc_pages[-1] if toc_pages else 1
+        
+        self.page_offset = compute_page_mapping(
+            self.toc_entries, self.total_pages, last_toc_page, manual_offset=self.page_offset
+        )
         self._log("Recompute done.", "OK")
         self._refresh_review_ui()
+
+    def _adjust_offset(self, delta: int):
+        self.page_offset += delta
+        self.offset_input.value = str(self.page_offset)
+        self._recompute(None)
+
+    def _on_offset_change(self, e):
+        try:
+            val = e.control.value.strip()
+            if not val or val == "-":
+                return
+            self.page_offset = int(val)
+            self._recompute(None)
+        except ValueError:
+            pass
+
+    def _show_preview(self, pdf_page: int | None):
+        if not self.pdf_path or pdf_page is None or pdf_page < 1 or pdf_page > self.total_pages:
+            self._log(f"Invalid preview page: {pdf_page}", "WARN")
+            return
+        
+        self._log(f"Generating preview for PDF page {pdf_page}...")
+        try:
+            # Render the single page
+            img_paths = extract_toc_images(self.pdf_path, [pdf_page])
+            if img_paths:
+                self.preview_image.src = img_paths[0]
+                self.preview_image.visible = True
+                self.preview_label.value = f"Previewing PDF Page {pdf_page}"
+                self._log(f"Preview ready for page {pdf_page}", "OK")
+            else:
+                self._log("Failed to extract preview image.", "ERROR")
+        except Exception as exc:
+            self._log(f"Preview error: {exc}", "ERROR")
+        self.page.update()
 
     # ------------------------------------------------------------------ #
     #  SPLIT PLAN                                                          #

@@ -12,6 +12,8 @@ A local desktop application for splitting scanned language learning PDFs based o
   - **Offline OCR (Docling):** Local, high-accuracy document conversion with layout analysis. No API key required.
 - **Automated Extraction:** Extracts text from OCR results and parses it into a structured table format.
 - **Review & Edit:** See the extracted TOC in a structured table. Edit errors, add/remove entries, and recalculate PDF page mappings.
+- **Page Offset Control:** Easily adjust the mapping between printed page numbers and actual PDF page numbers using a global offset (with +/- buttons).
+- **Live Page Preview:** Preview any page in the PDF instantly within the mapping table to verify accuracy before splitting.
 - **Split & Download:** Generate individual PDF files for each chapter and download them as a ZIP archive.
 - **Native Desktop GUI:** Built with Flet for a smooth desktop experience.
 
@@ -52,7 +54,7 @@ python gui.py
 
 1. **Step 1: Config & Upload:** Select your PDF and specify the TOC page range. Choose between **Online (LlamaParse)** or **Offline (Docling)** recognition.
 2. **Step 2: Preview & Run:** Preview the TOC pages and click **Run OCR Extraction**. The app extracts text and structures it into a editable list.
-3. **Step 3: Review & Edit:** The app computes an offset based on the first identified Arabic page number. You can manually adjust titles, levels, or PDF start pages here.
+3. **Step 3: Review & Edit:** The app computes an initial offset based on the TOC. You can manually adjust this **Global Offset** using +/- buttons to align all pages, and use the **Preview button** (eye icon) on each row to verify the PDF page mapping in real-time.
 4. **Step 4: Execute Split:** Review the split plan and click **Split PDF & Save**.
 
 ## Architecture
