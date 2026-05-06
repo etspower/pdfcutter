@@ -62,6 +62,21 @@ def extract_toc_images(pdf_path: str, pages: List[int]) -> List[str]:
     return image_paths
 
 
+def extract_toc_pdf(pdf_path: str, pages: List[int]) -> str:
+    """Extract specific pages into a temporary PDF."""
+    reader = PdfReader(pdf_path)
+    writer = PdfWriter()
+    for page_num in pages:
+        page_idx = page_num - 1
+        if 0 <= page_idx < len(reader.pages):
+            writer.add_page(reader.pages[page_idx])
+            
+    out_path = os.path.join(TEMP_DIR, "toc_temp.pdf")
+    with open(out_path, "wb") as f:
+        writer.write(f)
+    return out_path
+
+
 def split_pdf(pdf_path: str, plan: List[dict], output_prefix: str) -> Tuple[List[str], str]:
     reader = PdfReader(pdf_path)
     output_files = []

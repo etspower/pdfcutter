@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from typing import List
 
 from src.config import Config
-from src.pdf_utils import get_pdf_info, parse_page_range, extract_toc_images, split_pdf
+from src.pdf_utils import get_pdf_info, parse_page_range, extract_toc_images, split_pdf, extract_toc_pdf
 from src.llm_client import test_connection, extract_toc_from_images, NVIDIA_VISION_MODELS
 from src.toc_extract import parse_extraction_result
 from src.split_logic import compute_page_mapping, generate_split_plan
@@ -16,9 +16,6 @@ from src.ui_helpers import build_summary_markdown
 from src.schemas import TocEntry
 from src.ocr_client import (
     extract_text_from_images_online,
-    test_ocr_space_connection,
-    OCR_ENGINES,
-    OCR_LANGUAGES,
 )
 from src.docling_client import (
     extract_text_from_images_offline,
@@ -57,6 +54,15 @@ class PDFCutterGUI:
 
     def _log(self, msg: str, level: str = "INFO"):
         ts = datetime.now().strftime("%H:%M:%S")
+        log_line = f"[{ts}] [{level}] {msg}"
+        
+        # Write to file
+        try:
+            with open("pdfcutter.log", "a", encoding="utf-8") as f:
+                f.write(log_line + "\n")
+        except Exception:
+            pass
+
         colors = {
             "INFO": ft.Colors.CYAN_200,
             "OK": ft.Colors.GREEN_300,
@@ -66,7 +72,7 @@ class PDFCutterGUI:
         color = colors.get(level, ft.Colors.WHITE)
         self.log_list.controls.append(
             ft.Text(
-                f"[{ts}] [{level}] {msg}",
+                log_line,
                 color=color,
                 size=12,
                 font_family="monospace",
@@ -174,7 +180,7 @@ class PDFCutterGUI:
             on_change=self._on_mode_change,
             content=ft.Row(
                 [
-                    ft.Radio(value="online", label="Online Recognition (ocr.space)"),
+                    ft.Radio(value="online", label="Online Recognition (LlamaParse)"),
                     ft.Radio(value="offline", label="Offline Recognition (Docling)"),
                 ],
             ),
@@ -182,40 +188,18 @@ class PDFCutterGUI:
 
         # --- Online panel widgets ---
         self.ocr_api_key = ft.TextField(
-            label="ocr.space API Key",
-            value=os.getenv("OCR_SPACE_API_KEY", ""),
+            label="LlamaParse API Key",
+            value=os.getenv("LLAMAPARSE_API_KEY", ""),
             password=True,
             can_reveal_password=True,
             expand=True,
-        )
-        self.ocr_language = ft.Dropdown(
-            label="OCR Language",
-            value="eng",
-            width=250,
-            options=[ft.DropdownOption(key=v, text=k) for k, v in OCR_LANGUAGES.items()],
-        )
-        self.ocr_engine = ft.Dropdown(
-            label="OCR Engine",
-            value="1",
-            width=320,
-            options=[ft.DropdownOption(key=str(v), text=k) for k, v in OCR_ENGINES.items()],
         )
         self.conn_status = ft.Text("")
 
         self.online_panel = ft.Column(
             [
-                ft.Text("ocr.space API Configuration", size=16, weight=ft.FontWeight.W_500),
+                ft.Text("LlamaCloud Configuration", size=16, weight=ft.FontWeight.W_500),
                 self.ocr_api_key,
-                ft.Row([self.ocr_language, self.ocr_engine]),
-                ft.Row(
-                    [
-                        ft.Button(
-                            "Test API Key",
-                            icon=ft.Icons.WIFI,
-                            on_click=self._test_ocr_space,
-                        ),
-                    ]
-                ),
                 self.conn_status,
             ],
             spacing=10,
@@ -277,7 +261,6 @@ class PDFCutterGUI:
         llm_panel = ft.ExpansionTile(
             title=ft.Text("Advanced: LLM API (legacy)", size=14),
             subtitle=ft.Text("OpenRouter / NVIDIA vision model settings", size=11),
-            initially_expanded=False,
             controls=[
                 ft.Container(
                     content=ft.Column(
@@ -466,6 +449,7 @@ class PDFCutterGUI:
                     ),
                     self.split_status,
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 spacing=16,
             ),
             padding=20,
@@ -497,7 +481,7 @@ class PDFCutterGUI:
     def _load_env(self, _):
         self._log("Loading config from .env\u2026")
         load_dotenv(override=True)
-        self.ocr_api_key.value = os.getenv("OCR_SPACE_API_KEY", "")
+        self.ocr_api_key.value = os.getenv("LLAMAPARSE_API_KEY", "")
         self.api_base.value = os.getenv("PDFCUTTER_API_BASE_URL", Config.API_BASE_URL)
         self.api_key.value = os.getenv("PDFCUTTER_API_KEY", "")
         self.model_name.value = os.getenv("PDFCUTTER_MODEL", Config.MODEL)
@@ -543,37 +527,7 @@ class PDFCutterGUI:
         self._log(f"Recognition mode set to: {self.ocr_mode}")
         self.page.update()
 
-    def _test_ocr_space(self, _):
-        """Test the ocr.space API key."""
-        api_key = self.ocr_api_key.value.strip()
-        if not api_key:
-            self.conn_status.value = "\u274c Please enter an ocr.space API key."
-            self.conn_status.color = ft.Colors.RED
-            self.page.update()
-            return
 
-        self.conn_status.value = "Testing ocr.space API key\u2026"
-        self._log("Testing ocr.space API key\u2026")
-        self.page.update()
-
-        def run():
-            try:
-                ok = test_ocr_space_connection(api_key)
-                if ok:
-                    self.conn_status.value = "\u2705 ocr.space API key is valid!"
-                    self.conn_status.color = ft.Colors.GREEN
-                    self._log("ocr.space API key test passed.", "OK")
-                else:
-                    self.conn_status.value = "\u274c API key test failed."
-                    self.conn_status.color = ft.Colors.RED
-                    self._log("ocr.space API key test failed.", "WARN")
-            except Exception as exc:
-                self.conn_status.value = f"\u274c {exc}"
-                self.conn_status.color = ft.Colors.RED
-                self._log(f"ocr.space test error: {exc}", "ERROR")
-            self.page.update()
-
-        threading.Thread(target=run, daemon=True).start()
 
     def _extract_images(self, _):
         if not self.pdf_path:
@@ -630,24 +584,20 @@ class PDFCutterGUI:
                 raw_text = ""
 
                 if mode == "online":
-                    # --- Online: ocr.space ---
+                    # --- Online: LlamaParse ---
                     api_key = self.ocr_api_key.value.strip()
                     if not api_key:
-                        self.preview_info.value = "\u274c Please enter an ocr.space API key in Step 1."
+                        self.preview_info.value = "\u274c Please enter a LlamaParse API key in Step 1."
                         self._log("Online OCR aborted: no API key.", "WARN")
                         self.page.update()
                         return
 
-                    lang = self.ocr_language.value or "eng"
-                    engine = int(self.ocr_engine.value or "1")
-                    self._log(f"ocr.space: lang={lang}, engine={engine}")
+                    self._log(f"Creating temp PDF for LlamaParse...")
+                    temp_pdf_path = extract_toc_pdf(self.pdf_path, self.toc_pages)
 
                     raw_text = extract_text_from_images_online(
-                        self.image_paths,
+                        temp_pdf_path,
                         api_key,
-                        language=lang,
-                        ocr_engine=engine,
-                        timeout=60,
                         log_fn=self._log,
                     )
 
@@ -772,7 +722,7 @@ class PDFCutterGUI:
                             ft.DropdownOption(key="roman"),
                             ft.DropdownOption(key="unknown"),
                         ],
-                        on_change=lambda e, idx=i: self._update_field(idx, "page_number_type", e.control.value),
+                        on_select=lambda e, idx=i: self._update_field(idx, "page_number_type", e.control.value),
                     ),
                     ft.TextField(
                         value=str(entry.pdf_start_page or ""),

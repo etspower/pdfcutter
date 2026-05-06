@@ -7,3 +7,5 @@ httpx>=0.25.0
 pandas>=2.0.0
 flet>=0.80.0
 docling>=2.0.0
+
+llama-cloud>=0.0.12
